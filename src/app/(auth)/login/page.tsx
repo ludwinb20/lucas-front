@@ -37,7 +37,7 @@ export default function LoginPage() {
   return (
     <Card className="shadow-xl">
       <CardHeader>
-        <CardTitle className="font-headline text-2xl">Login to IntelliChat</CardTitle>
+        <CardTitle className="font-headline text-2xl">Login to Dr. Lucas</CardTitle>
         <CardDescription>Enter your credentials to access your chat.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
