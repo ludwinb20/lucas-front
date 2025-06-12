@@ -26,8 +26,12 @@ export default function LoginPage() {
         setIsLoading(false);
         return;
       }
-      await login(email, password);
-      // Navigation is handled by useAuth hook
+      const result = await login(email, password);
+      if (result.error) {
+        setError(result.error);
+        setIsLoading(false);
+        return;
+      }
     } catch (err) {
       setError('Failed to login. Please check your credentials.');
       setIsLoading(false);

@@ -1,79 +1,94 @@
-'use client';
-import { useState, useEffect } from 'react';
-import { MessageList } from './MessageList';
-import { MessageInput } from './MessageInput';
-import { chatAIConsultation, type ChatAIConsultationOutput } from '@/ai/flows/chat-ai-consultation';
-import { useToast } from '@/hooks/use-toast';
-import { Card } from '@/components/ui/card';
+// components/ChatContainer.tsx
+"use client";
+import { useChat } from "@/hooks/useChat";
+import { MessageList } from "@/components/chat/MessageList";
+import { MessageInput } from "@/components/chat/MessageInput";
+import { useEffect } from "react";
+import { toast } from "@/hooks/use-toast";
+import { generateAIResponse } from "@/lib/ai"; // Tu módulo de generación de IA
+import { ChatHeader } from "./ChatHeader";
 
-export interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'ai';
-  timestamp?: string;
+interface ChatContainerProps {
+  chatId: string;
+  currentUserId?: string;
+  assistantId?: string; // Nuevo prop para el ID del asistente
 }
 
-export function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [isSending, setIsSending] = useState(false);
-  const { toast } = useToast();
+export function ChatContainer({
+  chatId,
+  currentUserId,
+  assistantId = "assistant1", // Valor por defecto
+}: ChatContainerProps) {
+  const {
+    messages,
+    isLoading,
+    sendMessage,
+    sendAIResponse, // Nueva función del hook
+    error,
+  } = useChat(chatId);
 
-  // Initial greeting from AI
   useEffect(() => {
-    setMessages([
-      {
-        id: crypto.randomUUID(),
-        text: "Hello! I'm IntelliChat, your AI assistant. How can I help you today?",
-        sender: 'ai',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      },
-    ]);
-  }, []);
-
-  const handleSendMessage = async (text: string) => {
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      text,
-      sender: 'user',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
-    setMessages((prevMessages) => [...prevMessages, userMessage]);
-    setIsSending(true);
-
-    try {
-      const aiResponse: ChatAIConsultationOutput = await chatAIConsultation({ query: text });
-      const aiMessage: Message = {
-        id: crypto.randomUUID(),
-        text: aiResponse.response,
-        sender: 'ai',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prevMessages) => [...prevMessages, aiMessage]);
-    } catch (error) {
-      console.error('Error fetching AI response:', error);
+    if (error) {
       toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to get response from AI. Please try again.',
+        title: "Error en el chat",
+        description: error.message,
+        variant: "destructive",
       });
-      // Optionally add an error message to the chat
-       const errorMessage: Message = {
-        id: crypto.randomUUID(),
-        text: "Sorry, I couldn't process your request right now. Please try again later.",
-        sender: 'ai',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prevMessages) => [...prevMessages, errorMessage]);
-    } finally {
-      setIsSending(false);
+      console.error("Error en el chat:", error);
+    }
+  }, [error]);
+
+  const handleSend = async (messageData: {
+    text: string;
+    senderId: string;
+    senderType: "user" | "assistant";
+  }) => {
+    try {
+      // Envía el mensaje del usuario
+      await sendMessage({
+        text: messageData.text,
+        senderId: currentUserId || "",
+        senderType: "user",
+      });
+
+      // Genera y envía la respuesta de IA
+      const aiResponse = await generateAIResponse(messageData.text);
+      await sendAIResponse(aiResponse);
+    } catch (err) {
+      toast({
+        title: "Error al enviar mensaje",
+        description: "No se pudo enviar el mensaje",
+        variant: "destructive",
+      });
+      console.error("Error en el flujo del chat:", err);
     }
   };
 
   return (
-    <Card className="flex flex-col h-[calc(100vh-theme(spacing.28))] md:h-[calc(100vh-theme(spacing.32))] shadow-2xl overflow-hidden rounded-lg border">
-      {/* Subtract header height and some padding. Adjust if header height changes. */}
-      <MessageList messages={messages} isLoadingAiResponse={isSending} />
-      <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
-    </Card>
+    <div className="flex flex-col h-full">
+      <ChatHeader />
+      {/* Contenido existente */}
+      <div className="flex-1 overflow-hidden">
+        <MessageList
+          messages={messages}
+          isLoading={isLoading}
+          currentUserId={currentUserId}
+          assistantId={assistantId}
+        />
+      </div>
+
+      <MessageInput
+        onSend={(data) =>
+          handleSend({
+            ...data,
+            senderId: currentUserId || "",
+            senderType: "user",
+          })
+        }
+        isSending={isLoading}
+        currentUserId={currentUserId || ""}
+        disabled={!chatId || !currentUserId}
+      />
+    </div>
   );
 }

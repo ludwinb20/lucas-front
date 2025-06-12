@@ -2,50 +2,128 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { initializeApp } from 'firebase/app';
+import { 
+  getAuth, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut, 
+  onAuthStateChanged,
+  User,
+  AuthError
+} from 'firebase/auth';
+import { database } from '@/lib/firebase';
 
-const AUTH_KEY = 'intellichat_auth_status';
+// Configuración de Firebase (debes poner tu propia configuración)
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
+};
+
+// Inicializa Firebase
+export const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
 export function useAuth() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // Start with loading true
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  // Observador del estado de autenticación
   useEffect(() => {
-    // This effect runs only on the client after hydration
-    try {
-      const authStatus = localStorage.getItem(AUTH_KEY);
-      setIsAuthenticated(authStatus === 'true');
-    } catch (error) {
-      // Handle potential localStorage access errors (e.g., in private browsing mode)
-      console.error("Error accessing localStorage:", error);
-      setIsAuthenticated(false);
-    }
-    setIsLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setIsLoading(false);
+    });
+
+    // Limpieza al desmontar el componente
+    return () => unsubscribe();
   }, []);
 
-  const login = useCallback(async (email?: string, password?: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // In a real app, validate email and password
-    localStorage.setItem(AUTH_KEY, 'true');
-    setIsAuthenticated(true);
-    router.push('/chat');
+  const login = useCallback(async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/chat');
+      return {
+        success: true
+      }
+    } catch (err) {
+      const error = err as AuthError;
+      return {
+        success: false,
+        error: getFirebaseErrorMessage(error.code)
+      }
+    } finally {
+      setIsLoading(false);
+    }
   }, [router]);
 
-  const signup = useCallback(async (email?: string, password?: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    // In a real app, create user
-    localStorage.setItem(AUTH_KEY, 'true');
-    setIsAuthenticated(true);
-    router.push('/chat');
+  const signup = useCallback(async (email: string, password: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+      router.push('/chat');
+    } catch (err) {
+      const error = err as AuthError;
+      setError(getFirebaseErrorMessage(error.code));
+    } finally {
+      setIsLoading(false);
+    }
   }, [router]);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(AUTH_KEY);
-    setIsAuthenticated(false);
-    router.push('/login');
+  const logout = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (err) {
+      const error = err as AuthError;
+      setError(getFirebaseErrorMessage(error.code));
+    } finally {
+      setIsLoading(false);
+    }
   }, [router]);
 
-  return { isAuthenticated, isLoading, login, signup, logout };
+  return { 
+    user,
+    isAuthenticated: !!user,
+    isLoading, 
+    error,
+    login, 
+    signup, 
+    logout 
+  };
+}
+
+// Función para traducir códigos de error de Firebase a mensajes legibles
+function getFirebaseErrorMessage(code: string): string {
+  switch (code) {
+    case 'auth/invalid-email':
+      return 'El correo electrónico no es válido';
+    case 'auth/user-disabled':
+      return 'Esta cuenta ha sido deshabilitada';
+    case 'auth/user-not-found':
+      return 'No se encontró una cuenta con este correo';
+    case 'auth/wrong-password':
+      return 'Contraseña incorrecta';
+    case 'auth/email-already-in-use':
+      return 'Este correo ya está registrado';
+    case 'auth/weak-password':
+      return 'La contraseña es demasiado débil';
+    case 'auth/too-many-requests':
+      return 'Demasiados intentos. Intenta más tarde';
+    case 'auth/invalid-credential':
+      return 'Las credenciales no son inválidas';
+    default:
+      return 'Ocurrió un error. Por favor intenta nuevamente';
+  }
 }

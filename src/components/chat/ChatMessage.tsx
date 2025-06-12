@@ -1,9 +1,9 @@
-import type { Message } from './ChatInterface'; // Assuming Message type will be defined here
+import type { Message } from '@/types/chats';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Bot, User } from 'lucide-react';
 
 export function ChatMessage({ message }: { message: Message }) {
-  const isUser = message.sender === 'user';
+  const isUser = message.senderType === 'user';
 
   return (
     <div

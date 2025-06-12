@@ -1,6 +1,7 @@
 import type {Metadata} from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
+import { Sidebar } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'IntelliChat',
