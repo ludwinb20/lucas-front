@@ -28,6 +28,16 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
   
+    const logout = useCallback(() => {
+      signOut(auth).then(() => {
+        // Explicitly clear state on logout to avoid lingering data
+        setUser(null);
+        setUserProfile(null);
+        setPromptForName(false);
+        router.push('/login');
+      });
+    }, [router]);
+
     useEffect(() => {
       const unsubscribe = onAuthStateChanged(auth, (user) => {
         setUser(user);
@@ -41,33 +51,42 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       const checkUserProfile = async () => {
         if (user) {
           setIsProfileLoading(true);
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDocSnap = await getDoc(userDocRef);
-  
-          if (userDocSnap.exists()) {
-            setUserProfile(userDocSnap.data() as UserProfile);
-            setPromptForName(false);
-            if (['/login', '/signup'].includes(pathname)) {
-              router.replace('/chat');
+          try {
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+    
+            if (userDocSnap.exists()) {
+              setUserProfile(userDocSnap.data() as UserProfile);
+              setPromptForName(false);
+              if (['/login', '/signup'].includes(pathname)) {
+                router.replace('/chat');
+              }
+            } else {
+              // User is authenticated but has no profile document.
+              setUserProfile(null);
+              setPromptForName(true);
             }
-          } else {
-            // User is authenticated but has no profile document.
-            setUserProfile(null);
-            setPromptForName(true);
+          } catch (error) {
+              console.error("Error fetching user profile:", error);
+              // Log out on error to prevent being stuck in a broken state.
+              logout();
+          } finally {
+            setIsProfileLoading(false);
           }
-          setIsProfileLoading(false);
         } else {
-          // Not authenticated
+          // Not authenticated: reset profile state.
           setUserProfile(null);
           setPromptForName(false);
-          setIsProfileLoading(false);
         }
       };
   
       if (!isAuthLoading) {
           checkUserProfile();
       }
-    }, [user, isAuthLoading, router, pathname]);
+    // This effect should only re-run when auth state changes, not on navigation.
+    // That's why router and pathname are not in the dependency array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user, isAuthLoading]);
   
     const login = useCallback(
       async (email: string, password: string) => {
@@ -84,27 +103,29 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       },
       []
     );
-  
-    const logout = useCallback(() => {
-      signOut(auth).then(() => {
-        router.push('/login');
-      });
-    }, [router]);
 
     const updateProfile = useCallback(async (name: string) => {
       if (!user) return;
   
-      const userDocRef = doc(db, 'users', user.uid);
-      const newProfile = {
-        name,
-        email: user.email!,
-        createdAt: serverTimestamp(),
-      };
-  
-      await setDoc(userDocRef, newProfile);
-      setUserProfile({ name, email: user.email!, createdAt: new Date() }); // Set local profile
-      setPromptForName(false);
-      router.replace('/chat');
+      setIsProfileLoading(true);
+      try {
+        const userDocRef = doc(db, 'users', user.uid);
+        const newProfile = {
+          name,
+          email: user.email!,
+          createdAt: serverTimestamp(),
+        };
+    
+        await setDoc(userDocRef, newProfile);
+        setUserProfile({ name, email: user.email!, createdAt: new Date() }); // Set local profile
+        setPromptForName(false);
+        router.replace('/chat');
+      } catch (error) {
+        console.error("Error updating profile:", error);
+        // Optionally show a toast to the user
+      } finally {
+        setIsProfileLoading(false);
+      }
     }, [user, router]);
   
     const value: AuthContextType = {
