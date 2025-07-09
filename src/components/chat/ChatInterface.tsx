@@ -32,23 +32,31 @@ export function ChatInterface() {
   const { user, userProfile, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
+    console.log(`%cCHAT: useEffect for messages triggered. Auth loading: ${isAuthLoading}, User: ${user?.uid}`, 'color: blue; font-weight: bold;');
     if (user) {
+      console.log('CHAT: User exists. Setting up Firestore snapshot listener...');
       const messagesCollection = collection(db, 'users', user.uid, 'messages');
       const q = query(messagesCollection, orderBy('createdAt', 'asc'));
 
       const unsubscribe = onSnapshot(
         q,
         (querySnapshot) => {
+          console.log(`%cCHAT: Snapshot received. Found ${querySnapshot.docs.length} messages.`, 'color: green;');
           const msgs: Message[] = [];
           
           const getWelcomeMessage = () => {
             if (userProfile?.name) {
-                return `¡Hola ${userProfile.name}! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?`;
+                const msg = `¡Hola ${userProfile.name}! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?`;
+                console.log('CHAT: Welcome message with name:', msg);
+                return msg;
             }
-            return "¡Hola! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?";
+            const defaultMsg = "¡Hola! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?";
+            console.log('CHAT: Default welcome message:', defaultMsg);
+            return defaultMsg;
           };
 
           if (querySnapshot.empty) {
+             console.log('CHAT: No messages in history, adding welcome message.');
              msgs.push({
                 id: crypto.randomUUID(),
                 text: getWelcomeMessage(),
@@ -71,7 +79,7 @@ export function ChatInterface() {
           setMessages(msgs);
         },
         (error) => {
-          console.error('Error fetching messages:', error);
+          console.error('%cERROR: Failed to fetch messages from Firestore snapshot.', 'color: red; font-size: 1.2em; font-weight: bold;', error);
           toast({
             variant: 'destructive',
             title: 'Error',
@@ -80,8 +88,12 @@ export function ChatInterface() {
         }
       );
 
-      return () => unsubscribe();
+      return () => {
+        console.log('CHAT: Cleaning up Firestore snapshot listener.');
+        unsubscribe();
+      }
     } else if (!isAuthLoading) {
+      console.log('CHAT: No user and not loading. Displaying default message for logged out state.');
       setMessages([
         {
           id: crypto.randomUUID(),
@@ -94,7 +106,9 @@ export function ChatInterface() {
   }, [user, userProfile, isAuthLoading, toast]);
 
   const handleSendMessage = async (text: string) => {
+    console.log(`%cCHAT: handleSendMessage triggered with text: "${text}"`, 'color: blue; font-weight: bold;');
     if (!user) {
+      console.error('%cERROR: Attempted to send message without a user.', 'color: red; font-size: 1.2em; font-weight: bold;');
       toast({
         variant: 'destructive',
         title: 'Not Authenticated',
@@ -112,19 +126,24 @@ export function ChatInterface() {
     setIsSending(true);
 
     try {
+      console.log('CHAT: Adding user message to Firestore...');
       const messagesCollection = collection(db, 'users', user.uid, 'messages');
       await addDoc(messagesCollection, userMessage);
+      console.log('%cCHAT: User message added. Calling AI...', 'color: green;');
 
       const aiResponse: ChatAIConsultationOutput = await chatAIConsultation({ query: text });
+      console.log('%cCHAT: AI response received.', 'color: green;', aiResponse);
       
       const aiMessage = {
         text: aiResponse.response,
         sender: 'ai' as const,
         createdAt: serverTimestamp(),
       };
+      console.log('CHAT: Adding AI message to Firestore...');
       await addDoc(messagesCollection, aiMessage);
+      console.log('%cCHAT: AI message added.', 'color: green;');
     } catch (error) {
-      console.error('Error sending message or fetching AI response:', error);
+      console.error('%cERROR: Failed to send message or get AI response.', 'color: red; font-size: 1.2em; font-weight: bold;', error);
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -135,9 +154,11 @@ export function ChatInterface() {
         sender: 'ai' as const,
         createdAt: serverTimestamp(),
       };
+       console.log('CHAT: Adding error message to Firestore...');
        const messagesCollection = collection(db, 'users', user.uid, 'messages');
       await addDoc(messagesCollection, errorMessage);
     } finally {
+      console.log('CHAT: Finished sending message. isSending set to false.');
       setIsSending(false);
     }
   };

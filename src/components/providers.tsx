@@ -29,58 +29,74 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
   
     const logout = useCallback(() => {
+      console.log('AUTH: Logging out...');
       signOut(auth).then(() => {
         // Explicitly clear state on logout to avoid lingering data
         setUser(null);
         setUserProfile(null);
         setPromptForName(false);
         router.push('/login');
+        console.log('AUTH: Logout successful.');
       });
     }, [router]);
 
     useEffect(() => {
+      console.log('AUTH: Setting up onAuthStateChanged listener...');
       const unsubscribe = onAuthStateChanged(auth, (user) => {
+        console.log('AUTH: onAuthStateChanged triggered. User:', user?.uid || 'null');
         setUser(user);
         setIsAuthLoading(false);
+        console.log('AUTH: isAuthLoading set to false.');
       });
   
-      return () => unsubscribe();
+      return () => {
+        console.log('AUTH: Cleaning up onAuthStateChanged listener.');
+        unsubscribe();
+      };
     }, []);
 
     useEffect(() => {
       const checkUserProfile = async () => {
         if (user) {
+          console.log(`%cAUTH: Checking user profile for UID: ${user.uid}`, 'color: blue; font-weight: bold;');
           setIsProfileLoading(true);
           try {
             const userDocRef = doc(db, 'users', user.uid);
+            console.log('AUTH: Fetching user document from Firestore...');
             const userDocSnap = await getDoc(userDocRef);
     
             if (userDocSnap.exists()) {
+              console.log('%cAUTH: User profile found in Firestore.', 'color: green;');
               setUserProfile(userDocSnap.data() as UserProfile);
               setPromptForName(false);
               if (['/login', '/signup'].includes(pathname)) {
+                console.log('AUTH: User on auth page, redirecting to /chat...');
                 router.replace('/chat');
               }
             } else {
+              console.log('%cAUTH: User profile NOT found. Prompting for name.', 'color: orange;');
               // User is authenticated but has no profile document.
               setUserProfile(null);
               setPromptForName(true);
             }
           } catch (error) {
-              console.error("Error fetching user profile:", error);
+              console.error("%cERROR: Failed to fetch user profile from Firestore.", 'color: red; font-size: 1.2em; font-weight: bold;', error);
               // Log out on error to prevent being stuck in a broken state.
               logout();
           } finally {
+            console.log('AUTH: Finished profile check. isProfileLoading set to false.');
             setIsProfileLoading(false);
           }
         } else {
           // Not authenticated: reset profile state.
+          console.log('AUTH: No user, resetting profile state.');
           setUserProfile(null);
           setPromptForName(false);
         }
       };
   
       if (!isAuthLoading) {
+          console.log('AUTH: Auth loading finished, starting profile check.');
           checkUserProfile();
       }
     // This effect should only re-run when auth state changes, not on navigation.
@@ -90,7 +106,9 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   
     const login = useCallback(
       async (email: string, password: string) => {
-        await signInWithEmailAndPassword(auth, email, password);
+        console.log(`AUTH: Attempting login for ${email}...`);
+        const response = await signInWithEmailAndPassword(auth, email, password);
+        console.log('%cAUTH: Login successful via Firebase.', 'color: green;', response.user?.uid);
         // Effects will handle profile check and redirection.
       },
       []
@@ -98,15 +116,20 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   
     const signup = useCallback(
       async (email: string, password: string) => {
+        console.log(`AUTH: Attempting signup for ${email}...`);
         await createUserWithEmailAndPassword(auth, email, password);
+        console.log('%cAUTH: Signup successful via Firebase.', 'color: green;');
         // Effects will handle profile check and redirection.
       },
       []
     );
 
     const updateProfile = useCallback(async (name: string) => {
-      if (!user) return;
-  
+      if (!user) {
+        console.error('%cERROR: updateProfile called without a user.', 'color: red; font-size: 1.2em; font-weight: bold;');
+        return;
+      }
+      console.log(`AUTH: Updating profile for UID ${user.uid} with name: ${name}`);
       setIsProfileLoading(true);
       try {
         const userDocRef = doc(db, 'users', user.uid);
@@ -117,13 +140,15 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         };
     
         await setDoc(userDocRef, newProfile);
+        console.log('%cAUTH: Profile successfully saved to Firestore.', 'color: green;');
         setUserProfile({ name, email: user.email!, createdAt: new Date() }); // Set local profile
         setPromptForName(false);
         router.replace('/chat');
       } catch (error) {
-        console.error("Error updating profile:", error);
+        console.error("%cERROR: Failed to update user profile.", 'color: red; font-size: 1.2em; font-weight: bold;', error);
         // Optionally show a toast to the user
       } finally {
+        console.log('AUTH: Finished updating profile. isProfileLoading set to false.');
         setIsProfileLoading(false);
       }
     }, [user, router]);

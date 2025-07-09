@@ -17,18 +17,23 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    console.log('LOGIN: handleSubmit triggered.');
     setIsLoading(true);
     setError('');
     try {
       // Basic validation
       if (!email || !password) {
+        console.log('LOGIN: Validation failed. Email or password empty.');
         setError('Please fill in all fields.');
         setIsLoading(false);
         return;
       }
+      console.log('LOGIN: Calling login from useAuth...');
       await login(email, password);
+      console.log('LOGIN: Login call finished.');
       // Navigation is handled by useAuth hook
     } catch (err) {
+      console.error("%cERROR: Login failed.", 'color: red; font-size: 1.2em; font-weight: bold;', err);
       setError('Failed to login. Please check your credentials.');
       setIsLoading(false);
     }

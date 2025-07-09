@@ -27,12 +27,15 @@ export default function AppLayout({
   const pathname = usePathname();
 
   useEffect(() => {
+    console.log(`%cLAYOUT: Auth guard check. isLoading: ${isLoading}, isAuthenticated: ${isAuthenticated}`, 'color: blue; font-weight: bold;');
     if (!isLoading && !isAuthenticated) {
+      console.log('LAYOUT: Not loading and not authenticated. Redirecting to /login...');
       router.replace('/login');
     }
   }, [isAuthenticated, isLoading, router]);
 
   if (isLoading) {
+    console.log('LAYOUT: isLoading is true, showing loader...');
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -41,8 +44,11 @@ export default function AppLayout({
   }
 
   if (!isAuthenticated) {
+    console.log('LAYOUT: Not authenticated and not loading, returning null (should be redirected).');
     return null;
   }
+  
+  console.log('LAYOUT: Authenticated and not loading. Rendering app layout.');
 
   const menuItems = [
     { href: '/chat', label: 'Chat', icon: MessageCircle },
