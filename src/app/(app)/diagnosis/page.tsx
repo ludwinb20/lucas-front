@@ -12,6 +12,16 @@ import { Progress } from '@/components/ui/progress';
 import { Lightbulb, AlertTriangle, Stethoscope, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/hooks/useAuth';
+import { db } from '@/lib/firebase';
+import {
+  collection,
+  addDoc,
+  doc,
+  setDoc,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 
 type DiagnosisRole = 'user' | 'model';
 
@@ -25,26 +35,48 @@ export default function DiagnosisPage() {
   const [isSending, setIsSending] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
   const [finalDiagnosis, setFinalDiagnosis] = useState<DiagnoseSymptomOutput | null>(null);
+  const [diagnosisId, setDiagnosisId] = useState<string | null>(null);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const startConversation = async () => {
     setIsSending(true);
     setIsComplete(false);
     setFinalDiagnosis(null);
     setMessages([]);
+    
+    const newDiagnosisId = crypto.randomUUID();
+    setDiagnosisId(newDiagnosisId);
 
     try {
       const initialResponse = await diagnoseSymptoms({ history: [] });
+
+      if (user) {
+        // Create the main diagnosis document
+        await setDoc(doc(db, 'users', user.uid, 'diagnoses', newDiagnosisId), {
+          createdAt: serverTimestamp(),
+          status: 'in-progress',
+        });
+      }
+
       if (initialResponse.followUpQuestion) {
-        setMessages([
-          {
+        const initialAiMessage: DiagnosisMessage = {
             id: crypto.randomUUID(),
             text: initialResponse.followUpQuestion,
             sender: 'ai',
             role: 'model',
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          },
-        ]);
+        };
+        setMessages([initialAiMessage]);
+
+         if (user) {
+            const messagesCollection = collection(db, 'users', user.uid, 'diagnoses', newDiagnosisId, 'messages');
+            await addDoc(messagesCollection, {
+                text: initialAiMessage.text,
+                role: initialAiMessage.role,
+                createdAt: serverTimestamp(),
+            });
+         }
       }
     } catch (error) {
       console.error('Error starting diagnosis:', error);
@@ -59,9 +91,12 @@ export default function DiagnosisPage() {
   };
 
   useEffect(() => {
-    startConversation();
+    // We only want to start the conversation once the user is identified.
+    if(user) {
+      startConversation();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   const handleSendMessage = async (text: string) => {
     const newUserMessage: DiagnosisMessage = {
@@ -75,6 +110,16 @@ export default function DiagnosisPage() {
     const currentMessages = [...messages, newUserMessage];
     setMessages(currentMessages);
     setIsSending(true);
+
+    // Persist user message if logged in
+    if (user && diagnosisId) {
+        const messagesCollection = collection(db, 'users', user.uid, 'diagnoses', diagnosisId, 'messages');
+        await addDoc(messagesCollection, {
+            text: newUserMessage.text,
+            role: newUserMessage.role,
+            createdAt: serverTimestamp(),
+        });
+    }
 
     const history = currentMessages.map((msg) => ({
       role: msg.role,
@@ -95,6 +140,24 @@ export default function DiagnosisPage() {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
         setMessages(prev => [...prev, aiSummaryMessage]);
+
+        // Persist final AI message and diagnosis result if logged in
+        if (user && diagnosisId) {
+            const messagesCollection = collection(db, 'users', user.uid, 'diagnoses', diagnosisId, 'messages');
+            await addDoc(messagesCollection, {
+                text: aiSummaryMessage.text,
+                role: aiSummaryMessage.role,
+                createdAt: serverTimestamp(),
+            });
+
+            const diagnosisDocRef = doc(db, 'users', user.uid, 'diagnoses', diagnosisId);
+            await updateDoc(diagnosisDocRef, {
+                status: 'completed',
+                result: aiResponse,
+                completedAt: serverTimestamp()
+            });
+        }
+
       } else if (aiResponse.followUpQuestion) {
         const newAiMessage: DiagnosisMessage = {
           id: crypto.randomUUID(),
@@ -104,6 +167,16 @@ export default function DiagnosisPage() {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
         setMessages((prev) => [...prev, newAiMessage]);
+        
+        // Persist follow-up AI message if logged in
+        if (user && diagnosisId) {
+            const messagesCollection = collection(db, 'users', user.uid, 'diagnoses', diagnosisId, 'messages');
+            await addDoc(messagesCollection, {
+                text: newAiMessage.text,
+                role: newAiMessage.role,
+                createdAt: serverTimestamp(),
+            });
+        }
       }
     } catch (error) {
       console.error('Error getting diagnosis step:', error);
