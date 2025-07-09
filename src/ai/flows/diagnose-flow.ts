@@ -16,12 +16,12 @@ const ChatMessageSchema = z.object({
   content: z.string(),
 });
 
-export const DiagnoseSymptomInputSchema = z.object({
+const DiagnoseSymptomInputSchema = z.object({
   history: z.array(ChatMessageSchema).describe('The history of the conversation so far.'),
 });
 export type DiagnoseSymptomInput = z.infer<typeof DiagnoseSymptomInputSchema>;
 
-export const DiagnoseSymptomOutputSchema = z.object({
+const DiagnoseSymptomOutputSchema = z.object({
   isFinal: z.boolean().describe('Set to true only when you have enough information to provide a diagnosis.'),
   followUpQuestion: z.string().optional().describe('Your next question to the user to get more information. Ask only one question at a time.'),
   diagnoses: z
