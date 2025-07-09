@@ -7,9 +7,10 @@ import { Send, Loader2 } from 'lucide-react';
 interface MessageInputProps {
   onSendMessage: (messageText: string) => Promise<void>;
   isSending: boolean;
+  placeholder?: string;
 }
 
-export function MessageInput({ onSendMessage, isSending }: MessageInputProps) {
+export function MessageInput({ onSendMessage, isSending, placeholder = "Ask LucasMed anything..." }: MessageInputProps) {
   const [inputText, setInputText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -46,7 +47,7 @@ export function MessageInput({ onSendMessage, isSending }: MessageInputProps) {
           ref={textareaRef}
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Ask LucasMed anything..."
+          placeholder={placeholder}
           className="flex-grow resize-none overflow-y-auto pr-12 leading-tight"
           rows={1}
           onKeyDown={(e) => {
