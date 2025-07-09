@@ -11,9 +11,13 @@ import { app } from '@/lib/firebase';
 
 export const auth = getAuth(app);
 
+export type UserRole = 'superadmin' | 'admin' | 'doctor';
+
 export interface UserProfile {
   name: string;
   email: string;
+  role: UserRole;
+  companyId?: string;
   createdAt: any; // Can be a Firebase Timestamp
 }
 

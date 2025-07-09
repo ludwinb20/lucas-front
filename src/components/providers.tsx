@@ -129,29 +129,41 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error('%cERROR: updateProfile called without a user.', 'color: red; font-size: 1.2em; font-weight: bold;');
         return;
       }
-      console.log(`AUTH: Updating profile for UID ${user.uid} with name: ${name}`);
+      console.log(`AUTH: Creating profile for UID ${user.uid} with name: ${name}`);
       setIsProfileLoading(true);
       try {
         const userDocRef = doc(db, 'users', user.uid);
-        const newProfile = {
-          name,
-          email: user.email!,
-          createdAt: serverTimestamp(),
+        
+        // Create the profile object to be saved
+        const newProfileData = {
+            name,
+            email: user.email!,
+            role: 'doctor' as const, // New users default to 'doctor' role
+            createdAt: serverTimestamp(),
         };
-    
-        await setDoc(userDocRef, newProfile);
+
+        await setDoc(userDocRef, newProfileData);
         console.log('%cAUTH: Profile successfully saved to Firestore.', 'color: green;');
-        setUserProfile({ name, email: user.email!, createdAt: new Date() }); // Set local profile
+        
+        // Create a local version of the profile for immediate use
+        const localProfile: UserProfile = {
+            name,
+            email: user.email!,
+            role: 'doctor',
+            createdAt: new Date(), // Use current date for local state
+        };
+        
+        setUserProfile(localProfile); 
         setPromptForName(false);
         router.replace('/chat');
       } catch (error) {
         console.error("%cERROR: Failed to update user profile.", 'color: red; font-size: 1.2em; font-weight: bold;', error);
-        // Optionally show a toast to the user
+        logout(); // Log out on error to prevent being stuck in a broken state
       } finally {
-        console.log('AUTH: Finished updating profile. isProfileLoading set to false.');
+        console.log('AUTH: Finished creating profile. isProfileLoading set to false.');
         setIsProfileLoading(false);
       }
-    }, [user, router]);
+    }, [user, router, logout]);
   
     const value: AuthContextType = {
       user,

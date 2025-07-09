@@ -1,10 +1,10 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { AppHeader } from '@/components/AppHeader';
-import { Loader2, MessageCircle, Stethoscope, FileText } from 'lucide-react';
+import { Loader2, MessageCircle, Stethoscope, FileText, LayoutDashboard, Users, Building } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
@@ -22,7 +22,7 @@ export default function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { userProfile, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -34,8 +34,32 @@ export default function AppLayout({
     }
   }, [isAuthenticated, isLoading, router]);
 
-  if (isLoading) {
-    console.log('LAYOUT: isLoading is true, showing loader...');
+  const menuItems = useMemo(() => {
+    const baseItems = [
+      { href: '/chat', label: 'Chat', icon: MessageCircle, roles: ['doctor', 'admin', 'superadmin'] },
+      { href: '/diagnosis', label: 'Diagnóstico', icon: Stethoscope, roles: ['doctor', 'admin', 'superadmin'] },
+      { href: '/exams', label: 'Exámenes', icon: FileText, roles: ['doctor', 'admin', 'superadmin'] },
+    ];
+
+    const adminItems = [
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'superadmin'] },
+      { href: '/users', label: 'Usuarios', icon: Users, roles: ['admin', 'superadmin'] },
+    ];
+
+    const superAdminItems = [
+      { href: '/companies', label: 'Empresas', icon: Building, roles: ['superadmin'] },
+    ];
+    
+    const allItems = [...baseItems, ...adminItems, ...superAdminItems];
+
+    if (!userProfile?.role) return [];
+    
+    return allItems.filter(item => item.roles.includes(userProfile.role));
+
+  }, [userProfile?.role]);
+
+  if (isLoading || !userProfile) {
+    console.log('LAYOUT: isLoading or no user profile, showing loader...');
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -48,13 +72,7 @@ export default function AppLayout({
     return null;
   }
   
-  console.log('LAYOUT: Authenticated and not loading. Rendering app layout.');
-
-  const menuItems = [
-    { href: '/chat', label: 'Chat', icon: MessageCircle },
-    { href: '/diagnosis', label: 'Diagnóstico', icon: Stethoscope },
-    { href: '/exams', label: 'Exámenes', icon: FileText },
-  ];
+  console.log('LAYOUT: Authenticated and not loading. Rendering app layout for role:', userProfile.role);
 
   return (
     <SidebarProvider>
@@ -66,7 +84,7 @@ export default function AppLayout({
             <SidebarMenu>
                 {menuItems.map((item) => (
                     <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={{children: item.label, side: 'right'}}>
+                        <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={{children: item.label, side: 'right'}}>
                             <Link href={item.href}>
                                 <item.icon />
                                 <span>{item.label}</span>
