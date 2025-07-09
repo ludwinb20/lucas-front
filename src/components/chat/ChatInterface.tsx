@@ -29,7 +29,7 @@ export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, userProfile, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
     if (user) {
@@ -40,10 +40,18 @@ export function ChatInterface() {
         q,
         (querySnapshot) => {
           const msgs: Message[] = [];
+          
+          const getWelcomeMessage = () => {
+            if (userProfile?.name) {
+                return `¡Hola ${userProfile.name}! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?`;
+            }
+            return "¡Hola! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?";
+          };
+
           if (querySnapshot.empty) {
              msgs.push({
                 id: crypto.randomUUID(),
-                text: "Hello! I'm LucasMed, your AI assistant. How can I help you today?",
+                text: getWelcomeMessage(),
                 sender: 'ai',
                 timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             });
@@ -77,13 +85,13 @@ export function ChatInterface() {
       setMessages([
         {
           id: crypto.randomUUID(),
-          text: "Hello! I'm LucasMed, your AI assistant. Please log in to start a conversation.",
+          text: "¡Hola! Soy LucasMed, tu asistente de IA. Por favor, inicia sesión para comenzar una conversación.",
           sender: 'ai',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
     }
-  }, [user, isAuthLoading, toast]);
+  }, [user, userProfile, isAuthLoading, toast]);
 
   const handleSendMessage = async (text: string) => {
     if (!user) {

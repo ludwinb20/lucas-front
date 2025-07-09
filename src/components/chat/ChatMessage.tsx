@@ -1,8 +1,10 @@
 import type { Message } from './ChatInterface'; // Assuming Message type will be defined here
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Bot, User } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 export function ChatMessage({ message }: { message: Message }) {
+  const { userProfile } = useAuth();
   const isUser = message.sender === 'user';
 
   return (
@@ -35,7 +37,7 @@ export function ChatMessage({ message }: { message: Message }) {
       {isUser && (
          <Avatar className="h-8 w-8">
           <AvatarFallback className="bg-secondary text-secondary-foreground">
-            <User className="h-5 w-5" />
+            {userProfile?.name ? userProfile.name.charAt(0).toUpperCase() : <User className="h-5 w-5" />}
           </AvatarFallback>
         </Avatar>
       )}

@@ -11,13 +11,21 @@ import { app } from '@/lib/firebase';
 
 export const auth = getAuth(app);
 
+export interface UserProfile {
+  name: string;
+  email: string;
+  createdAt: any; // Can be a Firebase Timestamp
+}
+
 export interface AuthContextType {
   user: User | null;
+  userProfile: UserProfile | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  updateProfile: (name: string) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
