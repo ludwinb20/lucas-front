@@ -49,7 +49,6 @@ export function MessageInput({ onSendMessage, isSending }: MessageInputProps) {
           placeholder="Ask LucasMed anything..."
           className="flex-grow resize-none overflow-y-auto pr-12 leading-tight"
           rows={1}
-          maxRows={5}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
