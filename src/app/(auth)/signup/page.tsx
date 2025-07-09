@@ -47,7 +47,7 @@ export default function SignupPage() {
         <CardTitle className="font-headline text-2xl flex items-center gap-2">
           <UserPlus className="h-6 w-6" /> Create Account
         </CardTitle>
-        <CardDescription>Join IntelliChat to start your AI consultations.</CardDescription>
+        <CardDescription>Join LucasMed to start your AI consultations.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">

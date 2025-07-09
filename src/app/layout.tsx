@@ -3,7 +3,7 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
-  title: 'IntelliChat',
+  title: 'LucasMed',
   description: 'AI-powered chat consultation',
 };
 

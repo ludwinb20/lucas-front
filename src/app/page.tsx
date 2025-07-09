@@ -22,7 +22,7 @@ export default function RootPage() {
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background">
       <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      <p className="sr-only text-foreground">Loading IntelliChat...</p>
+      <p className="sr-only text-foreground">Loading LucasMed...</p>
     </div>
   );
 }

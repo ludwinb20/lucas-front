@@ -46,7 +46,7 @@ export function MessageInput({ onSendMessage, isSending }: MessageInputProps) {
           ref={textareaRef}
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Ask IntelliChat anything..."
+          placeholder="Ask LucasMed anything..."
           className="flex-grow resize-none overflow-y-auto pr-12 leading-tight"
           rows={1}
           maxRows={5}

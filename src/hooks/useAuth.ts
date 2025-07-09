@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 
-const AUTH_KEY = 'intellichat_auth_status';
+const AUTH_KEY = 'lucasmed_auth_status';
 
 export function useAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

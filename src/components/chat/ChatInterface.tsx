@@ -23,7 +23,7 @@ export function ChatInterface() {
     setMessages([
       {
         id: crypto.randomUUID(),
-        text: "Hello! I'm IntelliChat, your AI assistant. How can I help you today?",
+        text: "Hello! I'm LucasMed, your AI assistant. How can I help you today?",
         sender: 'ai',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
