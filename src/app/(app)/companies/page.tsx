@@ -2,36 +2,65 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { db } from '@/lib/firebase';
+import { collection, getDocs, Timestamp } from 'firebase/firestore';
+import { format } from 'date-fns';
+
+interface Company {
+    id: string;
+    name: string;
+    createdAt: Timestamp | Date; // Firestore returns Timestamp
+}
 
 export default function CompaniesPage() {
-  const { userProfile, isLoading } = useAuth();
+  const { userProfile, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
-    if (!isLoading && userProfile && userProfile.role !== 'superadmin') {
+    if (!isAuthLoading && userProfile && userProfile.role !== 'superadmin') {
       router.replace('/chat');
     }
-  }, [userProfile, isLoading, router]);
+  }, [userProfile, isAuthLoading, router]);
 
-  if (isLoading || !userProfile || userProfile.role !== 'superadmin') {
+  useEffect(() => {
+    const fetchCompanies = async () => {
+        if (!userProfile || userProfile.role !== 'superadmin') return;
+        setIsDataLoading(true);
+
+        try {
+            const companiesSnapshot = await getDocs(collection(db, 'companies'));
+            const companiesList = companiesSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+            } as Company));
+            setCompanies(companiesList);
+        } catch (error) {
+            console.error("Error fetching companies:", error);
+            // Optionally show an error message to the user
+        } finally {
+            setIsDataLoading(false);
+        }
+    };
+
+    if (userProfile) {
+        fetchCompanies();
+    }
+  }, [userProfile]);
+
+  if (isAuthLoading || !userProfile || userProfile.role !== 'superadmin') {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
-
-  // Placeholder data
-  const companies = [
-    { id: '1', name: 'Clínica Central', users: 25, createdAt: '2023-01-15' },
-    { id: '2', name: 'Hospital del Sur', users: 58, createdAt: '2023-03-22' },
-    { id: '3', name: 'Consultorios Norte', users: 12, createdAt: '2023-05-10' },
-  ];
 
   return (
     <div className="space-y-6">
@@ -47,11 +76,15 @@ export default function CompaniesPage() {
       
       <Card>
         <CardContent className="pt-6">
+          {isDataLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : (
             <Table>
                 <TableHeader>
                     <TableRow>
                         <TableHead>Nombre de Empresa</TableHead>
-                        <TableHead>Nro. Usuarios</TableHead>
                         <TableHead>Fecha de Creación</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -59,12 +92,17 @@ export default function CompaniesPage() {
                     {companies.map(company => (
                         <TableRow key={company.id}>
                             <TableCell className="font-medium">{company.name}</TableCell>
-                            <TableCell>{company.users}</TableCell>
-                            <TableCell>{company.createdAt}</TableCell>
+                            <TableCell>
+                                {company.createdAt instanceof Timestamp 
+                                    ? format(company.createdAt.toDate(), 'yyyy-MM-dd') 
+                                    : 'N/A'
+                                }
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
             </Table>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -1,38 +1,93 @@
 'use client';
 
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth, type UserProfile } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { db } from '@/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+
+interface DisplayUser extends UserProfile {
+  id: string;
+  companyName?: string;
+}
 
 export default function UsersPage() {
-  const { userProfile, isLoading } = useAuth();
+  const { userProfile, isLoading: isAuthLoading } = useAuth();
   const router = useRouter();
+  const [users, setUsers] = useState<DisplayUser[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   useEffect(() => {
-    if (!isLoading && userProfile && !['admin', 'superadmin'].includes(userProfile.role)) {
+    if (!isAuthLoading && userProfile && !['admin', 'superadmin'].includes(userProfile.role)) {
       router.replace('/chat');
     }
-  }, [userProfile, isLoading, router]);
+  }, [userProfile, isAuthLoading, router]);
 
-  if (isLoading || !userProfile || !['admin', 'superadmin'].includes(userProfile.role)) {
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (!userProfile) return;
+      setIsDataLoading(true);
+
+      try {
+        let usersQuery;
+        const usersCollection = collection(db, 'users');
+        
+        const companyMap = new Map<string, string>();
+        if (userProfile.role === 'superadmin') {
+          const companiesSnapshot = await getDocs(collection(db, 'companies'));
+          companiesSnapshot.forEach(doc => {
+            companyMap.set(doc.id, doc.data().name);
+          });
+        }
+
+        if (userProfile.role === 'superadmin') {
+          usersQuery = query(usersCollection);
+        } else if (userProfile.role === 'admin' && userProfile.companyId) {
+          usersQuery = query(usersCollection, where('companyId', '==', userProfile.companyId));
+        } else {
+            setUsers([]);
+            setIsDataLoading(false);
+            return;
+        }
+
+        const usersSnapshot = await getDocs(usersQuery);
+        const usersList = usersSnapshot.docs.map(doc => {
+          const data = doc.data() as UserProfile;
+          const displayUser: DisplayUser = {
+            ...data,
+            id: doc.id,
+          };
+          if (userProfile.role === 'superadmin' && data.companyId) {
+            displayUser.companyName = companyMap.get(data.companyId) || 'Sin Asignar';
+          }
+          return displayUser;
+        });
+
+        setUsers(usersList);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+      } finally {
+        setIsDataLoading(false);
+      }
+    };
+
+    if (userProfile) {
+      fetchUsers();
+    }
+  }, [userProfile]);
+
+  if (isAuthLoading || !userProfile || !['admin', 'superadmin'].includes(userProfile.role)) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
-
-  // Placeholder data
-  const users = [
-    { id: '1', name: 'Dr. Juan Pérez', email: 'juan.perez@example.com', role: 'doctor', company: 'Clínica Central' },
-    { id: '2', name: 'Dra. Ana Gómez', email: 'ana.gomez@example.com', role: 'doctor', company: 'Clínica Central' },
-    { id: '3', name: 'Admin Gral.', email: 'admin@example.com', role: 'admin', company: 'Clínica Central' },
-  ];
 
   return (
     <div className="space-y-6">
@@ -52,26 +107,32 @@ export default function UsersPage() {
       
       <Card>
         <CardContent className="pt-6">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Nombre</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Rol</TableHead>
-                        {userProfile.role === 'superadmin' && <TableHead>Empresa</TableHead>}
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {users.map(user => (
-                        <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.name}</TableCell>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
-                            {userProfile.role === 'superadmin' && <TableCell>{user.company}</TableCell>}
+            {isDataLoading ? (
+                 <div className="flex justify-center items-center py-10">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                 </div>
+            ) : (
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Nombre</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Rol</TableHead>
+                            {userProfile.role === 'superadmin' && <TableHead>Empresa</TableHead>}
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
+                    </TableHeader>
+                    <TableBody>
+                        {users.map(user => (
+                            <TableRow key={user.id}>
+                                <TableCell className="font-medium">{user.name}</TableCell>
+                                <TableCell>{user.email}</TableCell>
+                                <TableCell><Badge variant="secondary">{user.role}</Badge></TableCell>
+                                {userProfile.role === 'superadmin' && <TableCell>{user.companyName}</TableCell>}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            )}
         </CardContent>
       </Card>
     </div>
