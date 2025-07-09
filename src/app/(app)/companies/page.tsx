@@ -2,18 +2,22 @@
 
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Building } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, Timestamp, query, orderBy } from 'firebase/firestore';
 import { format } from 'date-fns';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { CreateCompanyDialog } from '@/components/company/CreateCompanyDialog';
+
 
 interface Company {
     id: string;
     name: string;
+    logoUrl?: string;
     createdAt: Timestamp | Date; // Firestore returns Timestamp
 }
 
@@ -22,6 +26,7 @@ export default function CompaniesPage() {
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   useEffect(() => {
     if (!isAuthLoading && userProfile && userProfile.role !== 'superadmin') {
@@ -29,30 +34,30 @@ export default function CompaniesPage() {
     }
   }, [userProfile, isAuthLoading, router]);
 
+  const fetchCompanies = useCallback(async () => {
+    if (!userProfile || userProfile.role !== 'superadmin') return;
+    setIsDataLoading(true);
+
+    try {
+        const q = query(collection(db, 'companies'), orderBy('createdAt', 'desc'));
+        const companiesSnapshot = await getDocs(q);
+        const companiesList = companiesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as Company));
+        setCompanies(companiesList);
+    } catch (error) {
+        console.error("Error fetching companies:", error);
+    } finally {
+        setIsDataLoading(false);
+    }
+  }, [userProfile]);
+
   useEffect(() => {
-    const fetchCompanies = async () => {
-        if (!userProfile || userProfile.role !== 'superadmin') return;
-        setIsDataLoading(true);
-
-        try {
-            const companiesSnapshot = await getDocs(collection(db, 'companies'));
-            const companiesList = companiesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-            } as Company));
-            setCompanies(companiesList);
-        } catch (error) {
-            console.error("Error fetching companies:", error);
-            // Optionally show an error message to the user
-        } finally {
-            setIsDataLoading(false);
-        }
-    };
-
     if (userProfile) {
         fetchCompanies();
     }
-  }, [userProfile]);
+  }, [userProfile, fetchCompanies]);
 
   if (isAuthLoading || !userProfile || userProfile.role !== 'superadmin') {
     return (
@@ -70,7 +75,7 @@ export default function CompaniesPage() {
               <CardTitle>Gestión de Empresas</CardTitle>
               <CardDescription>Crear y administrar empresas en el sistema.</CardDescription>
             </div>
-            <Button>Crear Nueva Empresa</Button>
+            <Button onClick={()=> setIsCreateOpen(true)}>Crear Nueva Empresa</Button>
         </CardHeader>
       </Card>
       
@@ -84,6 +89,7 @@ export default function CompaniesPage() {
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead className="w-[80px]">Logo</TableHead>
                         <TableHead>Nombre de Empresa</TableHead>
                         <TableHead>Fecha de Creación</TableHead>
                     </TableRow>
@@ -91,6 +97,12 @@ export default function CompaniesPage() {
                 <TableBody>
                     {companies.map(company => (
                         <TableRow key={company.id}>
+                            <TableCell>
+                                <Avatar>
+                                    <AvatarImage src={company.logoUrl} alt={company.name} />
+                                    <AvatarFallback><Building /></AvatarFallback>
+                                </Avatar>
+                            </TableCell>
                             <TableCell className="font-medium">{company.name}</TableCell>
                             <TableCell>
                                 {company.createdAt instanceof Timestamp 
@@ -105,6 +117,7 @@ export default function CompaniesPage() {
           )}
         </CardContent>
       </Card>
+      <CreateCompanyDialog isOpen={isCreateOpen} onOpenChange={setIsCreateOpen} onSuccess={fetchCompanies} />
     </div>
   );
 }
