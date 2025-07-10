@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, type ChangeEvent, type FormEvent } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,10 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { db, storage } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import Image from 'next/image';
+import { createCompanyAction } from '@/app/(app)/companies/actions';
 
 interface CreateCompanyDialogProps {
   isOpen: boolean;
@@ -26,11 +24,11 @@ interface CreateCompanyDialogProps {
 }
 
 export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateCompanyDialogProps) {
-  const [name, setName] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   const { toast } = useToast();
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -49,15 +47,20 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
   };
 
   const resetForm = () => {
-      setName('');
       setFile(null);
       setPreviewUrl(null);
       setIsLoading(false);
+      formRef.current?.reset();
   }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !file) {
+    const formData = new FormData(formRef.current!);
+    
+    const name = formData.get('name') as string;
+    const logoFile = formData.get('logo') as File;
+
+    if (!name.trim() || !logoFile || logoFile.size === 0) {
       toast({
         variant: 'destructive',
         title: 'Campos incompletos',
@@ -69,33 +72,29 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
     setIsLoading(true);
 
     try {
-      // 1. Upload logo to storage
-      const storageRef = ref(storage, `companies/${Date.now()}_${file.name}`);
-      await uploadBytes(storageRef, file);
-      const logoUrl = await getDownloadURL(storageRef);
+      const result = await createCompanyAction(formData);
 
-      // 2. Create company document in Firestore
-      await addDoc(collection(db, 'companies'), {
-        name,
-        logoUrl,
-        createdAt: serverTimestamp(),
-      });
-      
-      toast({
-        title: 'Empresa Creada',
-        description: `La empresa "${name}" ha sido creada exitosamente.`,
-      });
-
-      resetForm();
-      onSuccess(); // Refetch companies
-      onOpenChange(false); // Close dialog
-
+      if (result.success) {
+         toast({
+            title: 'Empresa Creada',
+            description: `La empresa ha sido creada exitosamente.`,
+          });
+          resetForm();
+          onSuccess(); // Refetch companies
+          onOpenChange(false); // Close dialog
+      } else {
+          toast({
+            variant: 'destructive',
+            title: 'Error al crear empresa',
+            description: result.error || 'Ocurrió un problema al guardar la nueva empresa.',
+          });
+      }
     } catch (error) {
-      console.error("Error creating company:", error);
+      console.error("Error submitting create company form:", error);
       toast({
         variant: 'destructive',
-        title: 'Error al crear empresa',
-        description: 'Hubo un problema al guardar la nueva empresa. Inténtalo de nuevo.',
+        title: 'Error inesperado',
+        description: 'Hubo un problema al procesar la solicitud. Inténtalo de nuevo.',
       });
     } finally {
       setIsLoading(false);
@@ -103,7 +102,12 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+        if (!isLoading) {
+            onOpenChange(open);
+            if (!open) resetForm();
+        }
+    }}>
       <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => { if(isLoading) e.preventDefault()}}>
         <DialogHeader>
           <DialogTitle>Crear Nueva Empresa</DialogTitle>
@@ -111,14 +115,13 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
             Rellena los datos para registrar una nueva empresa en el sistema.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} ref={formRef}>
             <div className="grid gap-4 py-4">
                 <div className="space-y-2">
                     <Label htmlFor="name">Nombre de la Empresa</Label>
                     <Input
                         id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        name="name"
                         placeholder="Nombre de la empresa"
                         required
                         disabled={isLoading}
@@ -143,13 +146,15 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
                         </div>
                     </div>
                      <Input
-                        id="logo-upload"
+                        id="logo"
+                        name="logo"
                         ref={fileInputRef}
                         type="file"
                         accept="image/*"
                         className="hidden"
                         onChange={handleFileChange}
                         disabled={isLoading}
+                        required
                     />
                 </div>
             </div>
@@ -157,7 +162,7 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
                     Cancelar
                 </Button>
-                <Button type="submit" disabled={isLoading || !name.trim() || !file}>
+                <Button type="submit" disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Crear Empresa
                 </Button>
@@ -167,3 +172,5 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
     </Dialog>
   );
 }
+
+    
