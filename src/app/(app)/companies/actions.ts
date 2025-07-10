@@ -2,9 +2,8 @@
 
 import { z } from 'zod';
 import { auth, db, storage as adminStorage } from '@/lib/firebase-admin';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { cookies } from 'next/headers';
+import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 const CompanySchema = z.object({
   name: z.string().min(1, 'El nombre es requerido.'),
@@ -37,12 +36,22 @@ export async function createCompanyAction(formData: FormData) {
       return { success: false, error: validation.error.errors.map(e => e.message).join(', ') };
     }
 
-    // 1. Upload logo to storage
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const storageRef = ref(adminStorage.bucket().file(`companies/${Date.now()}_${file.name}`)._location.path_);
+    // 1. Upload logo to storage using Admin SDK
+    const bucket = adminStorage.bucket();
+    const filePath = `companies/${Date.now()}_${file.name}`;
+    const fileUpload = bucket.file(filePath);
     
-    await uploadBytes(storageRef, buffer, { contentType: file.type });
-    const logoUrl = await getDownloadURL(storageRef);
+    const buffer = Buffer.from(await file.arrayBuffer());
+    
+    await fileUpload.save(buffer, {
+        metadata: {
+            contentType: file.type,
+        },
+    });
+
+    // Make the file public to get a URL
+    await fileUpload.makePublic();
+    const logoUrl = fileUpload.publicUrl();
 
     // 2. Create company document in Firestore
     await addDoc(collection(db, 'companies'), {
@@ -57,7 +66,7 @@ export async function createCompanyAction(formData: FormData) {
     console.error("Error creating company in server action:", error);
     if (error instanceof Error) {
         // Handle specific auth errors
-        if (error.name === 'AuthError' && (error as any).code?.includes('auth/session-cookie-expired')) {
+        if ((error as any).code === 'auth/session-cookie-expired') {
             return { success: false, error: 'La sesión ha expirado. Por favor, inicia sesión de nuevo.' };
         }
         return { success: false, error: error.message };
