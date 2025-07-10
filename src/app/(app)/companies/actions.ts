@@ -1,27 +1,26 @@
-// src/app/(app)/companies/actions.ts
 'use server';
 
 import { z } from 'zod';
-import { auth } from '@/hooks/useAuth';
-import { db, storage } from '@/lib/firebase-admin'; // Using admin SDK on the server
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore';
+import { auth, db, storage as adminStorage } from '@/lib/firebase-admin';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { cookies } from 'next/headers';
 
 const CompanySchema = z.object({
   name: z.string().min(1, 'El nombre es requerido.'),
 });
 
-// We can't pass a File object directly to a server action from a form.
-// We need to use FormData.
 export async function createCompanyAction(formData: FormData) {
   try {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error('No autenticado');
+    const sessionCookie = cookies().get('__session')?.value || '';
+    if (!sessionCookie) {
+      return { success: false, error: 'No autenticado. Por favor, inicia sesión de nuevo.' };
     }
-
-    // Check user role on the server for security
-    const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+    
+    // Verificar el usuario y su rol usando el Admin SDK
+    const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
+    const userDoc = await getDoc(doc(db, 'users', decodedToken.uid));
+    
     if (!userDoc.exists() || userDoc.data()?.role !== 'superadmin') {
       return { success: false, error: 'No autorizado' };
     }
@@ -40,7 +39,8 @@ export async function createCompanyAction(formData: FormData) {
 
     // 1. Upload logo to storage
     const buffer = Buffer.from(await file.arrayBuffer());
-    const storageRef = ref(storage, `companies/${Date.now()}_${file.name}`);
+    const storageRef = ref(adminStorage.bucket().file(`companies/${Date.now()}_${file.name}`)._location.path_);
+    
     await uploadBytes(storageRef, buffer, { contentType: file.type });
     const logoUrl = await getDownloadURL(storageRef);
 
@@ -56,10 +56,12 @@ export async function createCompanyAction(formData: FormData) {
   } catch (error) {
     console.error("Error creating company in server action:", error);
     if (error instanceof Error) {
+        // Handle specific auth errors
+        if (error.name === 'AuthError' && (error as any).code?.includes('auth/session-cookie-expired')) {
+            return { success: false, error: 'La sesión ha expirado. Por favor, inicia sesión de nuevo.' };
+        }
         return { success: false, error: error.message };
     }
     return { success: false, error: 'Ocurrió un error desconocido.' };
   }
 }
-
-    
