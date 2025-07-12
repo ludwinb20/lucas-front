@@ -1,19 +1,8 @@
 // src/app/api/auth/session/route.ts
 import {NextResponse} from 'next/server';
 import {cookies} from 'next/headers';
-import admin from 'firebase-admin';
 import {z} from 'zod';
-
-// Helper function for initialization
-function initializeFirebaseAdmin() {
-  if (!admin.apps.length) {
-    // In dev, no credentials needed if using emulators or default creds are set up
-    admin.initializeApp({
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    });
-  }
-  return admin.auth();
-}
+import {auth as adminAuth} from '@/lib/firebase-admin';
 
 const BodySchema = z.object({
   idToken: z.string(),
@@ -21,7 +10,6 @@ const BodySchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    const auth = initializeFirebaseAdmin();
     const body = await request.json();
     const result = BodySchema.safeParse(body);
 
@@ -32,12 +20,13 @@ export async function POST(request: Request) {
     const {idToken} = result.data;
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
 
-    const decodedIdToken = await auth.verifyIdToken(idToken);
+    const decodedIdToken = await adminAuth.verifyIdToken(idToken);
 
     if (new Date().getTime() / 1000 - decodedIdToken.auth_time < 5 * 60) {
-      const newSessionCookie = await auth.createSessionCookie(idToken, {expiresIn});
+      const sessionCookie = await adminAuth.createSessionCookie(idToken, {expiresIn});
 
-      (await cookies()).set('session', newSessionCookie, {
+      const cookieStore = await cookies();
+      cookieStore.set('__session', sessionCookie, {
         maxAge: expiresIn / 1000,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -57,7 +46,8 @@ export async function POST(request: Request) {
 
 export async function DELETE() {
   try {
-    cookies().delete('session');
+    const cookieStore = await cookies();
+    cookieStore.delete('__session');
     return NextResponse.json({status: 'success'}, {status: 200});
   } catch (error) {
     console.error('Failed to delete session:', error);

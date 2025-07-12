@@ -1,9 +1,10 @@
 'use server';
 
 import { z } from 'zod';
-import { auth, db, storage as adminStorage } from '@/lib/firebase-admin';
+import { auth as adminAuth, storage as adminStorage } from '@/lib/firebase-admin';
 import { cookies } from 'next/headers';
 import { addDoc, collection, doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase-admin';
 
 const CompanySchema = z.object({
   name: z.string().min(1, 'El nombre es requerido.'),
@@ -18,7 +19,7 @@ export async function createCompanyAction(formData: FormData) {
     }
     
     // Verificar el usuario y su rol usando el Admin SDK
-    const decodedToken = await auth.verifySessionCookie(sessionCookie, true);
+    const decodedToken = await adminAuth.verifySessionCookie(sessionCookie, true);
     const userDoc = await getDoc(doc(db, 'users', decodedToken.uid));
     
     if (!userDoc.exists() || userDoc.data()?.role !== 'superadmin') {

@@ -28,33 +28,63 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter();
     const pathname = usePathname();
   
-    const logout = useCallback(() => {
+    const logout = useCallback(async () => {
       console.log('AUTH: Logging out...');
-      signOut(auth).then(() => {
-        // Explicitly clear state on logout to avoid lingering data
-        setUser(null);
-        setUserProfile(null);
-        setPromptForName(false);
-        router.push('/login');
-        console.log('AUTH: Logout successful.');
-      });
+      await signOut(auth);
+      // Also invalidate server session
+      await fetch('/api/auth/session', { method: 'DELETE' });
+      
+      setUser(null);
+      setUserProfile(null);
+      setPromptForName(false);
+      
+      // Ensure redirection happens after state is cleared.
+      router.push('/login');
+      console.log('AUTH: Logout successful.');
     }, [router]);
-
+    
+    // Effect to handle session cookie creation on auth state change
     useEffect(() => {
-      console.log('AUTH: Setting up onAuthStateChanged listener...');
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        console.log('AUTH: onAuthStateChanged triggered. User:', user?.uid || 'null');
-        setUser(user);
-        setIsAuthLoading(false);
-        console.log('AUTH: isAuthLoading set to false.');
-      });
-  
-      return () => {
-        console.log('AUTH: Cleaning up onAuthStateChanged listener.');
-        unsubscribe();
-      };
-    }, []);
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            console.log('AUTH: onAuthStateChanged triggered. User:', user?.uid || 'null');
+            if (user) {
+                setUser(user);
+                try {
+                    const idToken = await user.getIdToken();
+                    const response = await fetch('/api/auth/session', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ idToken }),
+                    });
 
+                    if (!response.ok) {
+                       const responseData = await response.text();
+                       console.error('AUTH: Failed to handle session cookie.', responseData);
+                       logout();
+                       return;
+                    }
+                    console.log('AUTH: Session cookie handled successfully.');
+                } catch (error) {
+                    console.error('AUTH: Error during session cookie handling fetch.', error);
+                    logout();
+                }
+            } else {
+                setUser(null);
+            }
+            setIsAuthLoading(false);
+            console.log('AUTH: isAuthLoading set to false.');
+        });
+    
+        return () => {
+          console.log('AUTH: Cleaning up onAuthStateChanged listener.');
+          unsubscribe();
+        };
+    }, [logout]);
+
+
+    // Effect to check for user profile in Firestore
     useEffect(() => {
       const checkUserProfile = async () => {
         if (user) {
@@ -75,20 +105,17 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             } else {
               console.log('%cAUTH: User profile NOT found. Prompting for name.', 'color: orange;');
-              // User is authenticated but has no profile document.
               setUserProfile(null);
               setPromptForName(true);
             }
           } catch (error) {
               console.error("%cERROR: Failed to fetch user profile from Firestore.", 'color: red; font-size: 1.2em; font-weight: bold;', error);
-              // Log out on error to prevent being stuck in a broken state.
               logout();
           } finally {
             console.log('AUTH: Finished profile check. isProfileLoading set to false.');
             setIsProfileLoading(false);
           }
         } else {
-          // Not authenticated: reset profile state.
           console.log('AUTH: No user, resetting profile state.');
           setUserProfile(null);
           setPromptForName(false);
@@ -99,17 +126,13 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('AUTH: Auth loading finished, starting profile check.');
           checkUserProfile();
       }
-    // This effect should only re-run when auth state changes, not on navigation.
-    // That's why router and pathname are not in the dependency array.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user, isAuthLoading]);
+    }, [user, isAuthLoading, logout, pathname, router]);
   
     const login = useCallback(
       async (email: string, password: string) => {
         console.log(`AUTH: Attempting login for ${email}...`);
         const response = await signInWithEmailAndPassword(auth, email, password);
         console.log('%cAUTH: Login successful via Firebase.', 'color: green;', response.user?.uid);
-        // Effects will handle profile check and redirection.
       },
       []
     );
@@ -119,7 +142,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log(`AUTH: Attempting signup for ${email}...`);
         await createUserWithEmailAndPassword(auth, email, password);
         console.log('%cAUTH: Signup successful via Firebase.', 'color: green;');
-        // Effects will handle profile check and redirection.
       },
       []
     );
@@ -134,23 +156,21 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const userDocRef = doc(db, 'users', user.uid);
         
-        // Create the profile object to be saved
         const newProfileData = {
             name,
             email: user.email!,
-            role: 'doctor' as const, // New users default to 'doctor' role
+            role: 'doctor' as const,
             createdAt: serverTimestamp(),
         };
 
         await setDoc(userDocRef, newProfileData);
         console.log('%cAUTH: Profile successfully saved to Firestore.', 'color: green;');
         
-        // Create a local version of the profile for immediate use
         const localProfile: UserProfile = {
             name,
             email: user.email!,
             role: 'doctor',
-            createdAt: new Date(), // Use current date for local state
+            createdAt: new Date(),
         };
         
         setUserProfile(localProfile); 
@@ -158,7 +178,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         router.replace('/chat');
       } catch (error) {
         console.error("%cERROR: Failed to update user profile.", 'color: red; font-size: 1.2em; font-weight: bold;', error);
-        logout(); // Log out on error to prevent being stuck in a broken state
+        logout();
       } finally {
         console.log('AUTH: Finished creating profile. isProfileLoading set to false.');
         setIsProfileLoading(false);
