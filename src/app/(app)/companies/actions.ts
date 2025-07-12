@@ -11,7 +11,7 @@ const CompanySchema = z.object({
 
 export async function createCompanyAction(formData: FormData) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('__session')?.value || '';
     if (!sessionCookie) {
       return { success: false, error: 'No autenticado. Por favor, inicia sesión de nuevo.' };
@@ -67,7 +67,7 @@ export async function createCompanyAction(formData: FormData) {
     console.error("Error creating company in server action:", error);
     if (error instanceof Error) {
         // Handle specific auth errors
-        if ((error as any).code === 'auth/session-cookie-expired') {
+        if ((error as any).code === 'auth/session-cookie-expired' || (error as any).code === 'auth/session-cookie-revoked') {
             return { success: false, error: 'La sesión ha expirado. Por favor, inicia sesión de nuevo.' };
         }
         return { success: false, error: error.message };
