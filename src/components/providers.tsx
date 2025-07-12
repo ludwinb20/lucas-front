@@ -31,8 +31,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     const logout = useCallback(async () => {
       console.log('AUTH: Logging out...');
       await signOut(auth);
-      // Also invalidate server session
-      await fetch('/api/auth/session', { method: 'DELETE' });
       
       setUser(null);
       setUserProfile(null);
@@ -49,27 +47,6 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('AUTH: onAuthStateChanged triggered. User:', user?.uid || 'null');
             if (user) {
                 setUser(user);
-                try {
-                    const idToken = await user.getIdToken();
-                    const response = await fetch('/api/auth/session', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ idToken }),
-                    });
-
-                    if (!response.ok) {
-                       const responseData = await response.text();
-                       console.error('AUTH: Failed to handle session cookie.', responseData);
-                       logout();
-                       return;
-                    }
-                    console.log('AUTH: Session cookie handled successfully.');
-                } catch (error) {
-                    console.error('AUTH: Error during session cookie handling fetch.', error);
-                    logout();
-                }
             } else {
                 setUser(null);
             }
@@ -110,6 +87,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } catch (error) {
               console.error("%cERROR: Failed to fetch user profile from Firestore.", 'color: red; font-size: 1.2em; font-weight: bold;', error);
+              // Log out on error to prevent being stuck in a broken state.
               logout();
           } finally {
             console.log('AUTH: Finished profile check. isProfileLoading set to false.');

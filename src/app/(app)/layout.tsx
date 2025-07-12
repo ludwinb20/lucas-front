@@ -58,21 +58,16 @@ export default function AppLayout({
 
   }, [userProfile?.role]);
 
-  if (isLoading || !userProfile) {
-    console.log('LAYOUT: isLoading or no user profile, showing loader...');
+  if (isLoading || !isAuthenticated) {
+    console.log('LAYOUT: isLoading or not authenticated, showing loader...');
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
       </div>
     );
   }
-
-  if (!isAuthenticated) {
-    console.log('LAYOUT: Not authenticated and not loading, returning null (should be redirected).');
-    return null;
-  }
   
-  console.log('LAYOUT: Authenticated and not loading. Rendering app layout for role:', userProfile.role);
+  console.log('LAYOUT: Authenticated and not loading. Rendering app layout for role:', userProfile?.role);
 
   return (
     <SidebarProvider>

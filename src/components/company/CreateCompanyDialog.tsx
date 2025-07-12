@@ -58,13 +58,14 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
     const formData = new FormData(formRef.current!);
     
     const name = formData.get('name') as string;
-    const logoFile = formData.get('logo') as File;
+    // Note: File upload is temporarily disabled as it requires server-side handling.
+    // const logoFile = formData.get('logo') as File; 
 
-    if (!name.trim() || !logoFile || logoFile.size === 0) {
+    if (!name.trim()) {
       toast({
         variant: 'destructive',
         title: 'Campos incompletos',
-        description: 'Por favor, introduce un nombre y sube un logo.',
+        description: 'Por favor, introduce un nombre.',
       });
       return;
     }
@@ -128,10 +129,9 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
                     />
                 </div>
                  <div className="space-y-2">
-                    <Label htmlFor="logo">Logo de la Empresa</Label>
+                    <Label htmlFor="logo">Logo de la Empresa (Deshabilitado)</Label>
                     <div 
-                        className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-pointer"
-                        onClick={() => fileInputRef.current?.click()}
+                        className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md cursor-not-allowed opacity-50"
                     >
                         <div className="space-y-1 text-center">
                             {previewUrl ? (
@@ -140,7 +140,7 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
                                 <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
                             )}
                             <div className="flex text-sm text-muted-foreground">
-                                <p className="pl-1">{file ? file.name : 'Sube o arrastra una imagen'}</p>
+                                <p className="pl-1">{file ? file.name : 'Subida de logo no disponible'}</p>
                             </div>
                             <p className="text-xs text-muted-foreground">PNG, JPG, etc.</p>
                         </div>
@@ -153,8 +153,7 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
                         accept="image/*"
                         className="hidden"
                         onChange={handleFileChange}
-                        disabled={isLoading}
-                        required
+                        disabled={true} 
                     />
                 </div>
             </div>
@@ -172,5 +171,3 @@ export function CreateCompanyDialog({ isOpen, onOpenChange, onSuccess }: CreateC
     </Dialog>
   );
 }
-
-    
