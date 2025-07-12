@@ -11,7 +11,8 @@ const CompanySchema = z.object({
 
 export async function createCompanyAction(formData: FormData) {
   try {
-    const sessionCookie = cookies().get('__session')?.value || '';
+    const cookieStore = cookies();
+    const sessionCookie = cookieStore.get('__session')?.value || '';
     if (!sessionCookie) {
       return { success: false, error: 'No autenticado. Por favor, inicia sesión de nuevo.' };
     }
