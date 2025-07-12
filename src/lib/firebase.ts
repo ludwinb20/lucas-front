@@ -19,9 +19,9 @@ const db = getFirestore(app);
 const storage = getStorage(app);
 
 if (process.env.NODE_ENV === 'development') {
-    // connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-    // connectFirestoreEmulator(db, '127.0.0.1', 8080);
-    // connectStorageEmulator(storage, '127.0.0.1', 9199);
+    connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+    connectFirestoreEmulator(db, '127.0.0.1', 8080);
+    connectStorageEmulator(storage, '127.0.0.1', 9199);
 }
 
 
