@@ -41,6 +41,7 @@ Analyze the following medical image, which is a '{{examType}}'.
 
 Image to analyze: {{media url=imageDataUri}}
 
+
 Based on the image and exam type, provide the following:
 1.  **Summary**: A detailed summary of your analysis in technical, professional medical language. This section should be comprehensive and suitable for another medical professional.
 2.  **Findings**: A clear, itemized list of all potential findings. Include both normal and abnormal observations. Structure this in a way that is easy to read.
