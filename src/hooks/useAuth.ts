@@ -19,6 +19,7 @@ export interface UserProfile {
   role: UserRole;
   companyId?: string;
   createdAt: any; // Can be a Firebase Timestamp
+  id: string;
 }
 
 export interface AuthContextType {

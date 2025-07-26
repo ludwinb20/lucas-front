@@ -1,12 +1,13 @@
 'use client';
+
 import { useState, useEffect } from 'react';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { chatAIConsultation, type ChatAIConsultationOutput } from '@/ai/flows/chat-ai-consultation';
+import { chatAIConsultation } from '@/ai/flows/chat-ai-consultation';
 import { useToast } from '@/hooks/use-toast';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
 import {
   collection,
   addDoc,
@@ -15,7 +16,13 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  limit,
+  getDocs,
+  startAfter,
+  DocumentReference,
 } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { unique } from 'next/dist/build/utils';
 
 export interface Message {
   id: string;
@@ -23,6 +30,8 @@ export interface Message {
   sender: 'user' | 'ai';
   timestamp?: string;
   createdAt?: Timestamp;
+  imageUrl?: string;
+  ref?: DocumentReference;
 }
 
 export function ChatInterface() {
@@ -30,40 +39,88 @@ export function ChatInterface() {
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
   const { user, userProfile, isLoading: isAuthLoading } = useAuth();
+  const [lastLoaded, setLastLoaded] = useState<any>(null);
+
+  const loadMoreMessages = async (): Promise<Message[]> => {
+    console.log("loadMoreMessages");
+    if (!user) return [];
+
+    const messagesCollection = collection(db, 'users', user.uid, 'messages');
+    let q;
+
+    if (lastLoaded?.createdAt && lastLoaded?.ref) {
+      console.log("lastLoaded", lastLoaded);
+      q = query(
+        messagesCollection,
+        orderBy('createdAt', 'desc'),
+        orderBy('__name__', 'desc'),
+        startAfter(lastLoaded.createdAt, lastLoaded.ref.id),
+        limit(15)
+      );
+    } else {
+      q = query(
+        messagesCollection,
+        orderBy('createdAt', 'desc'),
+        orderBy('__name__', 'desc'),
+        limit(15)
+      );
+    }
+
+    const snapshot = await getDocs(q);
+    console.log("snapshot", snapshot);
+    if (snapshot.empty) return [];
+    const moreMessages: Message[] = [];
+
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      moreMessages.push({
+        id: doc.id,
+        text: data.text,
+        sender: data.sender,
+        createdAt: data.createdAt,
+        timestamp: data.createdAt
+          ? data.createdAt.toDate().toLocaleString([], {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })
+          : undefined,
+        imageUrl: data.imageUrl,
+      });
+    });
+
+    if (moreMessages.length > 0) {
+      const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      setLastLoaded({ createdAt: lastDoc.data().createdAt, ref: lastDoc.ref });
+    }
+
+    return moreMessages;
+  };
 
   useEffect(() => {
-    console.log(`%cCHAT: useEffect for messages triggered. Auth loading: ${isAuthLoading}, User: ${user?.uid}`, 'color: blue; font-weight: bold;');
     if (user) {
-      console.log('CHAT: User exists. Setting up Firestore snapshot listener...');
       const messagesCollection = collection(db, 'users', user.uid, 'messages');
-      const q = query(messagesCollection, orderBy('createdAt', 'asc'));
+      const q = query(messagesCollection, orderBy('createdAt', 'desc'), orderBy('__name__', 'desc'), limit(15));
 
       const unsubscribe = onSnapshot(
         q,
         (querySnapshot) => {
-          console.log(`%cCHAT: Snapshot received. Found ${querySnapshot.docs.length} messages.`, 'color: green;');
           const msgs: Message[] = [];
-          
-          const getWelcomeMessage = () => {
-            if (userProfile?.name) {
-                const msg = `¡Hola ${userProfile.name}! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?`;
-                console.log('CHAT: Welcome message with name:', msg);
-                return msg;
-            }
-            const defaultMsg = "¡Hola! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?";
-            console.log('CHAT: Default welcome message:', defaultMsg);
-            return defaultMsg;
-          };
 
           if (querySnapshot.empty) {
-             console.log('CHAT: No messages in history, adding welcome message.');
-             msgs.push({
-                id: crypto.randomUUID(),
-                text: getWelcomeMessage(),
-                sender: 'ai',
-                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            const welcomeMsg = userProfile?.name
+              ? `¡Hola ${userProfile.name}! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?`
+              : "¡Hola! Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?";
+            msgs.push({
+              id: crypto.randomUUID(),
+              text: welcomeMsg,
+              sender: 'ai',
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             });
           }
+
           querySnapshot.forEach((doc) => {
             const data = doc.data();
             msgs.push({
@@ -72,28 +129,37 @@ export function ChatInterface() {
               sender: data.sender,
               createdAt: data.createdAt,
               timestamp: data.createdAt
-                ?.toDate()
-                .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                ? data.createdAt.toDate().toLocaleString([], {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })
+                : undefined,
+              imageUrl: data.imageUrl,
             });
           });
+
           setMessages(msgs);
+          if (querySnapshot.docs.length > 0) {
+            const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
+            setLastLoaded({ createdAt: lastDoc.data().createdAt, ref: lastDoc.ref });
+          }
         },
         (error) => {
-          console.error('%cERROR: Failed to fetch messages from Firestore snapshot.', 'color: red; font-size: 1.2em; font-weight: bold;', error);
           toast({
             variant: 'destructive',
             title: 'Error',
-            description: 'Could not load chat history.',
+            description: 'No se pudo cargar el historial del chat.',
           });
         }
       );
 
-      return () => {
-        console.log('CHAT: Cleaning up Firestore snapshot listener.');
-        unsubscribe();
-      }
-    } else if (!isAuthLoading) {
-      console.log('CHAT: No user and not loading. Displaying default message for logged out state.');
+      return () => unsubscribe();
+    }
+
+    if (!isAuthLoading) {
       setMessages([
         {
           id: crypto.randomUUID(),
@@ -105,67 +171,76 @@ export function ChatInterface() {
     }
   }, [user, userProfile, isAuthLoading, toast]);
 
-  const handleSendMessage = async (text: string) => {
-    console.log(`%cCHAT: handleSendMessage triggered with text: "${text}"`, 'color: blue; font-weight: bold;');
+  const handleSendMessage = async (text: string, imageFile?: File | null) => {
     if (!user) {
-      console.error('%cERROR: Attempted to send message without a user.', 'color: red; font-size: 1.2em; font-weight: bold;');
       toast({
         variant: 'destructive',
-        title: 'Not Authenticated',
-        description: 'You must be logged in to send a message.',
+        title: 'No autenticado',
+        description: 'Debes iniciar sesión para enviar un mensaje.',
       });
       return;
+    }
+
+    let imageUrl: string | undefined = undefined;
+    if (imageFile) {
+      const storageRef = ref(storage, `users/${user.uid}/chat-images/${Date.now()}_${imageFile.name}`);
+      const uploadResult = await uploadBytes(storageRef, imageFile);
+      imageUrl = await getDownloadURL(uploadResult.ref);
     }
 
     const userMessage = {
       text,
       sender: 'user' as const,
       createdAt: serverTimestamp(),
+      ...(imageUrl && { imageUrl }),
     };
-    
+
     setIsSending(true);
 
     try {
-      console.log('CHAT: Adding user message to Firestore...');
       const messagesCollection = collection(db, 'users', user.uid, 'messages');
       await addDoc(messagesCollection, userMessage);
-      console.log('%cCHAT: User message added. Calling AI...', 'color: green;');
 
-      const aiResponse: ChatAIConsultationOutput = await chatAIConsultation({ query: text });
-      console.log('%cCHAT: AI response received.', 'color: green;', aiResponse);
-      
+      const last10 = [...messages, { ...userMessage, id: 'temp' }]
+        .slice(-10)
+        .map((m) => ({
+          role: m.sender,
+          content: m.text,
+          imageUrl: m.imageUrl,
+        }));
+
+      const aiResponse = await chatAIConsultation({ history: last10 });
+
       const aiMessage = {
         text: aiResponse.response,
         sender: 'ai' as const,
         createdAt: serverTimestamp(),
       };
-      console.log('CHAT: Adding AI message to Firestore...');
+
       await addDoc(messagesCollection, aiMessage);
-      console.log('%cCHAT: AI message added.', 'color: green;');
     } catch (error) {
-      console.error('%cERROR: Failed to send message or get AI response.', 'color: red; font-size: 1.2em; font-weight: bold;', error);
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to get response from AI. Please try again.',
+        description: 'No se pudo obtener una respuesta de la IA. Intenta de nuevo.',
       });
-      const errorMessage = {
-        text: "Sorry, I couldn't process your request right now. Please try again later.",
+
+      const fallbackMessage = {
+        text: "Lo siento, no pude procesar tu solicitud. Intenta nuevamente más tarde.",
         sender: 'ai' as const,
         createdAt: serverTimestamp(),
       };
-       console.log('CHAT: Adding error message to Firestore...');
-       const messagesCollection = collection(db, 'users', user.uid, 'messages');
-      await addDoc(messagesCollection, errorMessage);
+
+      const messagesCollection = collection(db, 'users', user.uid, 'messages');
+      await addDoc(messagesCollection, fallbackMessage);
     } finally {
-      console.log('CHAT: Finished sending message. isSending set to false.');
       setIsSending(false);
     }
   };
 
   return (
     <Card className="flex flex-col h-[calc(100vh-theme(spacing.28))] md:h-[calc(100vh-theme(spacing.32))] shadow-2xl overflow-hidden rounded-lg border">
-      <MessageList messages={messages} isLoadingAiResponse={isSending} />
+      <MessageList messages={messages} isLoadingAiResponse={isSending} loadMoreMessages={loadMoreMessages} />
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
     </Card>
   );

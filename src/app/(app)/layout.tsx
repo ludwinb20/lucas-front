@@ -35,12 +35,6 @@ export default function AppLayout({
   }, [isAuthenticated, isLoading, router]);
 
   const menuItems = useMemo(() => {
-    const baseItems = [
-      { href: '/chat', label: 'Chat', icon: MessageCircle, roles: ['doctor', 'admin', 'superadmin'] },
-      { href: '/diagnosis', label: 'Diagnóstico', icon: Stethoscope, roles: ['doctor', 'admin', 'superadmin'] },
-      { href: '/exams', label: 'Exámenes', icon: FileText, roles: ['doctor', 'admin', 'superadmin'] },
-    ];
-
     const adminItems = [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'superadmin'] },
       { href: '/users', label: 'Usuarios', icon: Users, roles: ['admin', 'superadmin'] },
@@ -49,8 +43,15 @@ export default function AppLayout({
     const superAdminItems = [
       { href: '/companies', label: 'Empresas', icon: Building, roles: ['superadmin'] },
     ];
+
+    const baseItems = [
+      { href: '/chat', label: 'Chat', icon: MessageCircle, roles: ['doctor', 'admin', 'superadmin'] },
+      { href: '/diagnosis', label: 'Diagnóstico', icon: Stethoscope, roles: ['doctor', 'admin', 'superadmin'] },
+      { href: '/exams', label: 'Exámenes', icon: FileText, roles: ['doctor', 'admin', 'superadmin'] },
+    ];
+
     
-    const allItems = [...baseItems, ...adminItems, ...superAdminItems];
+    const allItems = [...adminItems, ...superAdminItems, ...baseItems];
 
     if (!userProfile?.role) return [];
     

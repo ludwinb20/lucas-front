@@ -19,6 +19,36 @@ service cloud.firestore {
       return role == 'admin' || role == 'superadmin';
     }
 
+    // Helper function to check if the requesting user is the same as the resource user
+    function isRequestingUser(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && getUserRole(request.auth.uid) == 'admin';
+    }
+
+    // Helper function to check if user is superadmin
+    function isSuperAdmin() {
+      return request.auth != null && getUserRole(request.auth.uid) == 'superadmin';
+    }
+
+    // Helper function to check if user exists
+    function userExists(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    // Helper function to get requesting user's company ID
+    function requestingUserCompanyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
+    }
+
+    // Helper function to get user data
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
     // Rules for the 'users' collection
     match /users/{userId} {
       // Any authenticated user can create their own document.
@@ -32,10 +62,18 @@ service cloud.firestore {
       // Nobody can delete user documents directly for safety.
       allow delete: if false;
 
-      // Rules for user subcollections
+      // Rules for user subcollections (messages, diagnoses, exams)
       match /{subcollection}/{docId} {
-        // A user can manage their own documents in any of their subcollections.
-        allow read, write, delete, create: if request.auth != null && request.auth.uid == userId;
+        allow read, write, create, delete: if isRequestingUser(userId) 
+                           || isSuperAdmin() 
+                           || (isAdmin() && userExists(userId) && requestingUserCompanyId() == getUserData(userId).companyId);
+        
+        // Rules for nested subcollections (like messages within diagnoses)
+        match /{nestedSubcollection}/{nestedDocId} {
+          allow read, write, create, delete: if isRequestingUser(userId) 
+                             || isSuperAdmin() 
+                             || (isAdmin() && userExists(userId) && requestingUserCompanyId() == getUserData(userId).companyId);
+        }
       }
     }
 

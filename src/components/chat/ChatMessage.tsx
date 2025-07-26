@@ -2,6 +2,7 @@ import type { Message } from './ChatInterface'; // Assuming Message type will be
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Bot, User } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 
 export function ChatMessage({ message }: { message: Message }) {
   const { userProfile } = useAuth();
@@ -9,7 +10,7 @@ export function ChatMessage({ message }: { message: Message }) {
 
   return (
     <div
-      className={`flex items-end gap-2 animate-in fade-in slide-in-from-bottom-3 duration-300 ${
+      className={`flex items-end gap-2 animate-in fade-in slide-in-from-bottom-3 duration-300 my-4 ${
         isUser ? 'justify-end' : 'justify-start'
       }`}
     >
@@ -28,6 +29,13 @@ export function ChatMessage({ message }: { message: Message }) {
         }`}
       >
         <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+        {message.imageUrl && (
+          <img
+            src={message.imageUrl}
+            alt="Imagen adjunta"
+            className="mt-2 max-w-xs max-h-48 rounded border"
+          />
+        )}
         {message.timestamp && (
           <p className={`mt-1 text-xs ${isUser ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
             {message.timestamp}

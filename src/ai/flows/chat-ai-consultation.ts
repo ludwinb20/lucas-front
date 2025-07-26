@@ -12,13 +12,19 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
+const ChatMessageSchema = z.object({
+  role: z.enum(['user', 'ai']),
+  content: z.string(),
+  imageUrl: z.string().optional(),
+});
+
 const ChatAIConsultationInputSchema = z.object({
-  query: z.string().describe('The query from the user.'),
+  history: z.array(ChatMessageSchema).describe('Los últimos mensajes del chat, ordenados del más antiguo al más reciente. Máximo 10.'),
 });
 export type ChatAIConsultationInput = z.infer<typeof ChatAIConsultationInputSchema>;
 
 const ChatAIConsultationOutputSchema = z.object({
-  response: z.string().describe('The AI-powered response to the query.'),
+  response: z.string().describe('La respuesta generada por la IA.'),
 });
 export type ChatAIConsultationOutput = z.infer<typeof ChatAIConsultationOutputSchema>;
 
@@ -30,7 +36,14 @@ const prompt = ai.definePrompt({
   name: 'chatAIConsultationPrompt',
   input: {schema: ChatAIConsultationInputSchema},
   output: {schema: ChatAIConsultationOutputSchema},
-  prompt: `You are an AI assistant in a chat interface.  Respond to the user's query with accurate and helpful information.\n\nQuery: {{{query}}}`,
+  prompt: `Eres LucasMed, un asistente médico de IA en un chat con un doctor. Usa el contexto de los últimos mensajes para dar una respuesta precisa y útil.
+
+Historial de mensajes (del más antiguo al más reciente):
+{{#each history}}
+- {{role}}: {{{content}}}{{#if imageUrl}} [Imagen adjunta: {{imageUrl}}]{{/if}}
+{{/each}}
+
+Responde al último mensaje del usuario de la forma más útil y profesional posible. Si hay imágenes, tenlas en cuenta en tu análisis.`,
 });
 
 const chatAIConsultationFlow = ai.defineFlow(
