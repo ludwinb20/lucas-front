@@ -77,8 +77,15 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
               setUserProfile(userDocSnap.data() as UserProfile);
               setPromptForName(false);
               if (['/login', '/signup'].includes(pathname)) {
-                console.log('AUTH: User on auth page, redirecting to /chat...');
-                router.replace('/chat');
+                // Redirigir según el rol del usuario
+                const userRole = userDocSnap.data().role;
+                if (userRole === 'doctor') {
+                  console.log('AUTH: Doctor logged in, redirecting to /chat...');
+                  router.replace('/chat');
+                } else {
+                  console.log('AUTH: Admin/Superadmin logged in, redirecting to /dashboard...');
+                  router.replace('/dashboard');
+                }
               }
             } else {
               console.log('%cAUTH: User profile NOT found. Prompting for name.', 'color: orange;');
@@ -153,6 +160,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         
         setUserProfile(localProfile); 
         setPromptForName(false);
+        // Los doctores van a chat, otros roles van a dashboard
         router.replace('/chat');
       } catch (error) {
         console.error("%cERROR: Failed to update user profile.", 'color: red; font-size: 1.2em; font-weight: bold;', error);

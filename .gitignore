@@ -43,3 +43,6 @@ next-env.d.ts
 # firebase
 firebase-debug.log
 firestore-debug.log
+
+# firebase admin sdk
+intellichat-ucvl0-firebase-adminsdk-fbsvc-ff5cd13591.json

@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { InviteUserDialog } from '@/components/user/InviteUserDialog';
+import { ChangePasswordDialog } from '@/components/user/ChangePasswordDialog';
 
 interface DisplayUser extends UserProfile {
   id: string;
@@ -29,6 +30,8 @@ export default function UsersPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<DisplayUser | null>(null);
 
   useEffect(() => {
     if (!isAuthLoading && userProfile && !['admin', 'superadmin'].includes(userProfile.role)) {
@@ -136,6 +139,7 @@ export default function UsersPage() {
                             <TableHead>Email</TableHead>
                             <TableHead>Rol</TableHead>
                             {userProfile.role === 'superadmin' && <TableHead>Empresa</TableHead>}
+                            <TableHead>Acciones</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -151,6 +155,20 @@ export default function UsersPage() {
                                     }>{user.role}</Badge>
                                 </TableCell>
                                 {userProfile.role === 'superadmin' && <TableCell>{user.companyName || 'N/A'}</TableCell>}
+                                <TableCell>
+                                    {userProfile.role === 'superadmin' && (
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                                setSelectedUser(user);
+                                                setIsChangePasswordOpen(true);
+                                            }}
+                                        >
+                                            Cambiar Contraseña
+                                        </Button>
+                                    )}
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>
@@ -159,6 +177,13 @@ export default function UsersPage() {
         </CardContent>
       </Card>
       <InviteUserDialog isOpen={isInviteOpen} onOpenChange={setIsInviteOpen} onSuccess={fetchUsersAndCompanies} companies={companies} />
+      {selectedUser && (
+        <ChangePasswordDialog
+          isOpen={isChangePasswordOpen}
+          onOpenChange={setIsChangePasswordOpen}
+          user={selectedUser}
+        />
+      )}
     </div>
   );
 }

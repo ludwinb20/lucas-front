@@ -44,6 +44,10 @@ export default function AppLayout({
       { href: '/companies', label: 'Empresas', icon: Building, roles: ['superadmin'] },
     ];
 
+    const doctorItems = [
+      { href: '/dashboard', label: 'Estadísticas', icon: LayoutDashboard, roles: ['doctor'] },
+    ];
+
     const baseItems = [
       { href: '/chat', label: 'Chat', icon: MessageCircle, roles: ['doctor', 'admin', 'superadmin'] },
       { href: '/diagnosis', label: 'Diagnóstico', icon: Stethoscope, roles: ['doctor', 'admin', 'superadmin'] },
@@ -51,7 +55,7 @@ export default function AppLayout({
     ];
 
     
-    const allItems = [...adminItems, ...superAdminItems, ...baseItems];
+    const allItems = [...adminItems, ...superAdminItems, ...doctorItems, ...baseItems];
 
     if (!userProfile?.role) return [];
     
