@@ -4,11 +4,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { AppHeader } from '@/components/AppHeader';
-import { Loader2, MessageCircle, Stethoscope, FileText, LayoutDashboard, Users, Building } from 'lucide-react';
+import { SidebarMenu } from '@/components/SidebarMenu';
+import { ThemeProvider } from '@/components/ThemeProvider';
+import { Loader2, MessageCircle, Stethoscope, FileText, LayoutDashboard, Users, Building, User } from 'lucide-react';
 import {
   SidebarProvider,
   Sidebar,
-  SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarInset,
@@ -52,6 +53,7 @@ export default function AppLayout({
       { href: '/chat', label: 'Chat', icon: MessageCircle, roles: ['doctor', 'admin', 'superadmin'] },
       { href: '/diagnosis', label: 'Diagnóstico', icon: Stethoscope, roles: ['doctor', 'admin', 'superadmin'] },
       { href: '/exams', label: 'Exámenes', icon: FileText, roles: ['doctor', 'admin', 'superadmin'] },
+      { href: '/profile', label: 'Mi Perfil', icon: User, roles: ['doctor', 'admin', 'superadmin'] },
     ];
 
     
@@ -75,32 +77,25 @@ export default function AppLayout({
   console.log('LAYOUT: Authenticated and not loading. Rendering app layout for role:', userProfile?.role);
 
   return (
-    <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader>
-            <Logo />
-        </SidebarHeader>
-        <SidebarContent>
-            <SidebarMenu>
-                {menuItems.map((item) => (
-                    <SidebarMenuItem key={item.href}>
-                        <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={{children: item.label, side: 'right'}}>
-                            <Link href={item.href}>
-                                <item.icon />
-                                <span>{item.label}</span>
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                ))}
-            </SidebarMenu>
-        </SidebarContent>
-      </Sidebar>
-      <SidebarInset>
-        <AppHeader />
-        <div className="flex-1 container mx-auto p-4 md:p-6 flex flex-col">
-          {children}
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+    <ThemeProvider>
+      <SidebarProvider>
+        <Sidebar>
+          <SidebarHeader className="border-b border-sidebar-border/10 px-4 py-6">
+              <div className="flex items-center justify-center">
+                <Logo size="text-xl" />
+              </div>
+          </SidebarHeader>
+          <SidebarContent className="flex-1 px-3 py-4">
+              <SidebarMenu items={menuItems} userRole={userProfile?.role} />
+          </SidebarContent>
+        </Sidebar>
+        <SidebarInset>
+          <AppHeader />
+          <div className="flex-1 container mx-auto p-4 md:p-6 flex flex-col">
+            {children}
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </ThemeProvider>
   );
 }

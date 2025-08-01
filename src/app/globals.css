@@ -4,95 +4,72 @@
 
 @layer base {
   :root {
-    --background: 220 13% 94%; /* Light Grey #F0F2F5 */
-    --foreground: 220 10% 20%; /* Dark Grey for text */
-
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 220 10% 20%;
-
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 10% 20%;
-
-    --primary: 231 48% 58%; /* Deep Blue #3F51B5 */
-    --primary-foreground: 0 0% 100%; /* White */
-
-    --secondary: 220 10% 88%; /* Slightly darker grey for secondary elements */
-    --secondary-foreground: 220 10% 10%;
-
-    --muted: 220 10% 88%;
-    --muted-foreground: 220 10% 45%;
-
-    --accent: 291 64% 42%; /* Vibrant Purple #9C27B0 */
-    --accent-foreground: 0 0% 100%; /* White */
-
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 162 47% 46%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 162 47% 95%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 162 47% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 162 47% 85%;
+    --accent-foreground: 222.2 84% 4.9%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 220 10% 80%;
-    --input: 220 10% 85%; /* Slightly lighter than border for input fields */
-    --ring: 231 48% 58%; /* Primary color for rings */
-
-    --chart-1: 12 76% 61%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 162 47% 90%;
+    --input: 162 47% 90%;
+    --ring: 162 47% 46%;
+    --chart-1: 162 47% 46%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-
-    /* Default sidebar colors, can be adjusted if sidebar is used extensively */
-    --sidebar-background: 240 5.9% 10%; /* Darker for contrast or match app theme */
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 231 48% 58%; /* Match app primary */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 291 64% 42%; /* Match app accent */
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 231 48% 58%;
+    --sidebar-width: 16rem;
+    --sidebar-width-icon: 3rem;
+    --sidebar-border: 162 47% 90%;
+    --sidebar-accent: 162 47% 85%;
+    --sidebar-accent-foreground: 222.2 84% 4.9%;
+    --sidebar-ring: 162 47% 46%;
+    --sidebar-background: 162 47% 98%;
+    --sidebar-foreground: 222.2 84% 4.9%;
   }
 
   .dark {
-    --background: 220 10% 10%; /* Dark background for dark mode */
-    --foreground: 220 13% 90%; /* Light grey text */
-
-    --card: 220 10% 15%;
-    --card-foreground: 220 13% 90%;
-
-    --popover: 220 10% 15%;
-    --popover-foreground: 220 13% 90%;
-
-    --primary: 231 48% 58%; /* Deep Blue */
-    --primary-foreground: 0 0% 100%; /* White */
-
-    --secondary: 220 10% 25%;
-    --secondary-foreground: 220 13% 90%;
-
-    --muted: 220 10% 25%;
-    --muted-foreground: 220 10% 60%;
-
-    --accent: 291 64% 42%; /* Vibrant Purple */
-    --accent-foreground: 0 0% 100%; /* White */
-    
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 162 47% 60%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 162 47% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 162 47% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 162 47% 20%;
+    --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-
-    --border: 220 10% 30%;
-    --input: 220 10% 25%;
-    --ring: 231 48% 58%; /* Primary color for rings */
-    
-    --chart-1: 220 70% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 162 47% 20%;
+    --input: 162 47% 15%;
+    --ring: 162 47% 60%;
+    --chart-1: 162 47% 60%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-
-    --sidebar-background: 220 10% 12%;
-    --sidebar-foreground: 220 13% 90%;
-    --sidebar-primary: 231 48% 58%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 291 64% 42%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 220 10% 20%;
-    --sidebar-ring: 231 48% 58%;
+    --sidebar-border: 162 47% 8%;
+    --sidebar-accent: 162 47% 12%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-ring: 162 47% 60%;
+    --sidebar-background: 162 47% 4%;
+    --sidebar-foreground: 210 40% 98%;
   }
 }
 
@@ -102,5 +79,60 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Custom sidebar improvements */
+@layer components {
+  /* Improved sidebar spacing and centering */
+  [data-sidebar="header"] {
+    @apply px-4 py-6;
+  }
+
+  [data-sidebar="content"] {
+    @apply px-3 py-2;
+  }
+
+  [data-sidebar="menu"] {
+    @apply gap-1.5;
+  }
+
+  [data-sidebar="menu-button"] {
+    @apply px-3 py-2.5 rounded-lg transition-all duration-200;
+  }
+
+  [data-sidebar="menu-button"]:hover {
+    @apply bg-sidebar-accent/40 text-sidebar-accent-foreground;
+  }
+
+  [data-sidebar="menu-button"][data-active="true"] {
+    @apply bg-sidebar-accent/50 text-sidebar-accent-foreground font-medium;
+  }
+
+  /* Better icon alignment */
+  [data-sidebar="menu-button"] svg {
+    @apply flex-shrink-0;
+  }
+
+  /* Improved text alignment */
+  [data-sidebar="menu-button"] span {
+    @apply leading-tight;
+  }
+
+  /* Sidebar background */
+  [data-sidebar="sidebar"] {
+    background: linear-gradient(to bottom, hsl(var(--sidebar-background)), hsl(var(--sidebar-background) / 0.98), hsl(var(--sidebar-background) / 0.95));
+    border-right: 1px solid hsl(var(--sidebar-border) / 0.15);
+  }
+
+  /* Better mobile spacing */
+  @media (max-width: 768px) {
+    [data-sidebar="header"] {
+      @apply px-3 py-4;
+    }
+    
+    [data-sidebar="content"] {
+      @apply px-2 py-1;
+    }
   }
 }

@@ -30,8 +30,14 @@ import {
   Area
 } from 'recharts';
 
-// Colores para los gráficos
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+// Colores para los gráficos - Paleta Verde-Azul Diversa
+const COLORS = [
+  'hsl(162 47% 46%)',  // Verde-azul principal
+  'hsl(180 100% 35%)', // Azul teal
+  'hsl(158 64% 45%)',  // Verde esmeralda
+  'hsl(173 58% 39%)',  // Verde oceánico
+  'hsl(160 84% 39%)',  // Verde menta
+];
 
 export default function DashboardPage() {
   const { userProfile, isLoading } = useAuth();
@@ -279,7 +285,7 @@ export default function DashboardPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ActivitySquare className="h-5 w-5 text-blue-600" />
+              <ActivitySquare className="h-5 w-5 text-primary" />
               Evolución de Actividad
             </CardTitle>
             <CardDescription>
@@ -305,9 +311,9 @@ export default function DashboardPage() {
                     formatter={(value, name) => [value, name === 'messages' ? 'Mensajes' : name === 'diagnoses' ? 'Diagnósticos' : 'Exámenes']}
                   />
                   <Legend />
-                  <Area type="monotone" dataKey="messages" stackId="1" stroke="#8884d8" fill="#8884d8" />
-                  <Area type="monotone" dataKey="diagnoses" stackId="1" stroke="#82ca9d" fill="#82ca9d" />
-                  <Area type="monotone" dataKey="exams" stackId="1" stroke="#ffc658" fill="#ffc658" />
+                  <Area type="monotone" dataKey="messages" stackId="1" stroke="hsl(162 47% 46%)" fill="hsl(162 47% 46%)" />
+                  <Area type="monotone" dataKey="diagnoses" stackId="1" stroke="hsl(180 100% 35%)" fill="hsl(180 100% 35%)" />
+                  <Area type="monotone" dataKey="exams" stackId="1" stroke="hsl(158 64% 45%)" fill="hsl(158 64% 45%)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -322,7 +328,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-blue-600" />
+              <MessageCircle className="h-5 w-5 text-primary" />
               Mensajes por Día
             </CardTitle>
             <CardDescription>
@@ -347,7 +353,7 @@ export default function DashboardPage() {
                     labelFormatter={(value) => new Date(value).toLocaleDateString('es-ES')}
                     formatter={(value) => [value, 'Mensajes']}
                   />
-                  <Bar dataKey="count" fill="#8884d8" />
+                  <Bar dataKey="count" fill="hsl(180 100% 35%)" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -362,7 +368,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5 text-purple-600" />
+              <Stethoscope className="h-5 w-5 text-primary" />
               Diagnósticos por Día
             </CardTitle>
             <CardDescription>
@@ -387,7 +393,7 @@ export default function DashboardPage() {
                     labelFormatter={(value) => new Date(value).toLocaleDateString('es-ES')}
                     formatter={(value) => [value, 'Diagnósticos']}
                   />
-                  <Line type="monotone" dataKey="count" stroke="#8884d8" strokeWidth={2} />
+                  <Line type="monotone" dataKey="count" stroke="hsl(158 64% 45%)" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -402,7 +408,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <ActivitySquare className="h-5 w-5 text-pink-600" />
+              <ActivitySquare className="h-5 w-5 text-primary" />
               Síntomas Más Comunes
             </CardTitle>
             <CardDescription>
@@ -424,7 +430,7 @@ export default function DashboardPage() {
                     labelLine={false}
                     label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill="hsl(162 47% 46%)"
                     dataKey="count"
                   >
                     {stats.commonSymptoms.map((entry, index) => (
@@ -446,7 +452,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-yellow-600" />
+              <FileText className="h-5 w-5 text-primary" />
               Exámenes por Día
             </CardTitle>
             <CardDescription>
@@ -471,7 +477,7 @@ export default function DashboardPage() {
                     labelFormatter={(value) => new Date(value).toLocaleDateString('es-ES')}
                     formatter={(value) => [value, 'Exámenes']}
                   />
-                  <Bar dataKey="count" fill="#ffc658" />
+                  <Bar dataKey="count" fill="hsl(173 58% 39%)" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -483,10 +489,10 @@ export default function DashboardPage() {
         </Card>
 
         {/* Resumen de métricas */}
-        <Card className="bg-gradient-to-br from-gray-50 to-gray-100">
+        <Card className="bg-gradient-to-br from-primary/5 to-primary/10">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-gray-600" />
+              <Sparkles className="h-5 w-5 text-primary" />
               Resumen de Métricas
             </CardTitle>
             <CardDescription>
@@ -501,19 +507,19 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{stats?.totalMessages ?? 0}</div>
+                  <div className="text-2xl font-bold text-primary">{stats?.totalMessages ?? 0}</div>
                   <div className="text-sm text-muted-foreground">Mensajes</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{stats?.totalDiagnoses ?? 0}</div>
+                  <div className="text-2xl font-bold text-primary">{stats?.totalDiagnoses ?? 0}</div>
                   <div className="text-sm text-muted-foreground">Diagnósticos</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">{stats?.totalExams ?? 0}</div>
+                  <div className="text-2xl font-bold text-primary">{stats?.totalExams ?? 0}</div>
                   <div className="text-sm text-muted-foreground">Exámenes</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">{stats?.avgMessagesPerUser?.toFixed(1) ?? 0}</div>
+                  <div className="text-2xl font-bold text-primary">{stats?.avgMessagesPerUser?.toFixed(1) ?? 0}</div>
                   <div className="text-sm text-muted-foreground">Promedio/Usuario</div>
                 </div>
               </div>

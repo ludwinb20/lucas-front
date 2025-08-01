@@ -6,7 +6,7 @@ const CustomLogo = ({ className }: { className?: string }) => (
     preserveAspectRatio="xMidYMid meet">
 
     <g transform="translate(0.000000,500.000000) scale(0.100000,-0.100000)"
-      fill="#6070c7" stroke="none">
+      fill="hsl(var(--primary))" stroke="none">
       <path d="M2058 4683 c-78 -12 -110 -119 -52 -176 31 -31 68 -37 242 -37 l142
         0 0 -100 0 -100 -247 0 c-361 0 -419 -13 -507 -111 -72 -79 -80 -110 -84 -325
         l-4 -191 -71 -6 c-61 -5 -75 -10 -100 -35 -46 -46 -39 -128 15 -161 11 -7 51

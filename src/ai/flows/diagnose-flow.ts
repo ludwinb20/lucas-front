@@ -7,8 +7,8 @@
  * - DiagnoseSymptomOutput - The return type for the diagnoseSymptoms function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { z } from 'zod';
+import { medGemmaClient } from '@/lib/medgemma-client';
 
 // Nuevo input estructurado para el doctor
 const DiagnoseInputSchema = z.object({
@@ -32,56 +32,59 @@ const DiagnoseOutputSchema = z.object({
 export type DiagnoseOutput = z.infer<typeof DiagnoseOutputSchema>;
 
 export async function diagnoseSymptoms(input: DiagnoseInput): Promise<DiagnoseOutput> {
-  return diagnoseSymptomsFlow(input);
-}
+  try {
+    const prompt = `Eres LucasMed, un asistente médico de IA que ayuda a DOCTORES a explorar diagnósticos diferenciales.
 
-const prompt = ai.definePrompt({
-  name: 'diagnoseSymptomsPromptDoctor',
-  input: {schema: DiagnoseInputSchema},
-  output: {schema: DiagnoseOutputSchema},
-  prompt: `Eres LucasMed, un asistente médico de IA que ayuda a DOCTORES a explorar diagnósticos diferenciales.
-
-Recibirás información estructurada sobre un caso clínico:
-- Síntomas principales
-- Signos clínicos
-- Hallazgos de laboratorio/estudios
-- Modo de búsqueda: "obvios" (diagnósticos comunes) o "raros" (diagnósticos menos frecuentes)
+Información del caso clínico:
+- Síntomas: ${input.sintomas}
+- Signos: ${input.signos || 'No especificados'}
+- Hallazgos: ${input.hallazgos || 'No especificados'}
+- Modo de búsqueda: ${input.modo} (${input.modo === 'obvios' ? 'diagnósticos comunes' : 'diagnósticos menos frecuentes'})
 
 Tu tarea es:
-1. Analizar la información y sugerir una lista de diagnósticos diferenciales, priorizando según el modo solicitado.
-2. Para cada diagnóstico, indica:
-   - Nombre de la condición
-   - Probabilidad estimada (0-100)
-   - Justificación breve (por qué lo sugieres)
-   - Recomendación clínica para el doctor
-   - Si es un diagnóstico obvio o raro
-3. Si el modo es "obvios", prioriza diagnósticos comunes y típicos. Si es "raros", prioriza diagnósticos atípicos o menos frecuentes.
-4. No repitas diagnósticos similares. No incluyas diagnósticos imposibles según los datos.
-5. No pidas datos personales ni hables al paciente, solo al doctor.
-6. Agrega siempre este disclaimer: "Importante: Esta es una sugerencia generada por IA y no reemplaza el juicio clínico profesional. El diagnóstico definitivo y el tratamiento deben ser realizados por un médico."
+1. Analizar la información y sugerir diagnósticos diferenciales
+2. Para cada diagnóstico, indica: condición, probabilidad (0-100), justificación, recomendación, tipo (obvio/raro)
+3. Si el modo es "obvios", prioriza diagnósticos comunes. Si es "raros", prioriza diagnósticos atípicos
+4. No repitas diagnósticos similares
+5. No pidas datos personales ni hables al paciente, solo al doctor
+6. Agrega este disclaimer: "Importante: Esta es una sugerencia generada por IA y no reemplaza el juicio clínico profesional. El diagnóstico definitivo y el tratamiento deben ser realizados por un médico."
 
-Ejemplo de output:
-[
-  {
-    condición: "Gripe común",
-    probabilidad: 80,
-    justificación: "Síntomas respiratorios agudos y fiebre, sin hallazgos graves.",
-    recomendación: "Considerar tratamiento sintomático y vigilancia.",
-    tipo: "obvio"
-  },
-  ...
-]
-`,
-});
+Proporciona la respuesta en formato JSON con las claves: diagnósticos (array), disclaimer (string).`;
 
-const diagnoseSymptomsFlow = ai.defineFlow(
-  {
-    name: 'diagnoseSymptomsFlowDoctor',
-    inputSchema: DiagnoseInputSchema,
-    outputSchema: DiagnoseOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const response = await medGemmaClient.processText({
+      prompt,
+    });
+
+    if (!response.success) {
+      throw new Error('MedGemma API returned unsuccessful response');
+    }
+
+    console.log('Total tokens used:', response.tokens_used);
+
+    // Parsear la respuesta JSON
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(response.response);
+    } catch (parseError) {
+      // Si no es JSON válido, crear respuesta estructurada
+      parsedResponse = {
+        diagnósticos: [{
+          condición: "Análisis completado",
+          probabilidad: 50,
+          justificación: "Análisis realizado por IA",
+          recomendación: "Consulte a un médico para diagnóstico definitivo",
+          tipo: "obvio"
+        }],
+        disclaimer: "Importante: Esta es una sugerencia generada por IA y no reemplaza el juicio clínico profesional. El diagnóstico definitivo y el tratamiento deben ser realizados por un médico."
+      };
+    }
+
+    return {
+      diagnósticos: parsedResponse.diagnósticos || [],
+      disclaimer: parsedResponse.disclaimer || "Importante: Esta es una sugerencia generada por IA y no reemplaza el juicio clínico profesional. El diagnóstico definitivo y el tratamiento deben ser realizados por un médico.",
+    };
+  } catch (error) {
+    console.error('Error calling MedGemma diagnosis:', error);
+    throw new Error(`Failed to diagnose symptoms: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-);
+}

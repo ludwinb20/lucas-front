@@ -7,8 +7,8 @@
  * - AnalyzeExamOutput - The return type for the analyzeExam function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { z } from 'zod';
+import { medGemmaClient } from '@/lib/medgemma-client';
 
 const AnalyzeExamInputSchema = z.object({
   imageDataUri: z
@@ -28,35 +28,46 @@ const AnalyzeExamOutputSchema = z.object({
 export type AnalyzeExamOutput = z.infer<typeof AnalyzeExamOutputSchema>;
 
 export async function analyzeExam(input: AnalyzeExamInput): Promise<AnalyzeExamOutput> {
-  return analyzeExamFlow(input);
-}
+  try {
+    const prompt = `Eres un radiólogo experto. Analiza esta imagen médica de tipo '${input.examType}' y proporciona:
 
-const prompt = ai.definePrompt({
-  name: 'analyzeExamPrompt',
-  input: {schema: AnalyzeExamInputSchema},
-  output: {schema: AnalyzeExamOutputSchema},
-  prompt: `You are an expert radiologist AI assistant. Your task is to analyze medical images and provide a professional report.
+1. **Resumen**: Un análisis detallado en lenguaje médico técnico y profesional, como si fuera escrito por un radiólogo.
+2. **Hallazgos**: Una lista clara y detallada de todos los hallazgos potenciales, tanto normales como anormales.
+3. **Disclaimer**: El siguiente texto exacto: "Importante: Este es un análisis preliminar generado por IA y no debe considerarse un diagnóstico médico definitivo. La interpretación de imágenes médicas es compleja y debe ser realizada por un radiólogo certificado. Consulte a un profesional de la salud para una evaluación completa y un diagnóstico preciso."
 
-Analyze the following medical image, which is a '{{examType}}'.
+Proporciona la respuesta en formato JSON con las claves: summary, findings, disclaimer.`;
 
-Image to analyze: {{media url=imageDataUri}}
+    const response = await medGemmaClient.processImage({
+      imageDataUri: input.imageDataUri,
+      prompt,
+    });
 
+    if (!response.success) {
+      throw new Error('MedGemma API returned unsuccessful response');
+    }
 
-Based on the image and exam type, provide the following:
-1.  **Summary**: A detailed summary of your analysis in technical, professional medical language. This section should be comprehensive and suitable for another medical professional.
-2.  **Findings**: A clear, itemized list of all potential findings. Include both normal and abnormal observations. Structure this in a way that is easy to read.
-3.  **Disclaimer**: Provide the following exact disclaimer text: "Importante: Este es un análisis preliminar generado por IA y no debe considerarse un diagnóstico médico definitivo. La interpretación de imágenes médicas es compleja y debe ser realizada por un radiólogo certificado. Consulte a un profesional de la salud para una evaluación completa y un diagnóstico preciso."
-`,
-});
+    console.log('Total tokens used:', response.tokens_used);
 
-const analyzeExamFlow = ai.defineFlow(
-  {
-    name: 'analyzeExamFlow',
-    inputSchema: AnalyzeExamInputSchema,
-    outputSchema: AnalyzeExamOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+    // Parsear la respuesta JSON
+    let parsedResponse;
+    try {
+      parsedResponse = JSON.parse(response.response);
+    } catch (parseError) {
+      // Si no es JSON válido, crear respuesta estructurada
+      parsedResponse = {
+        summary: response.response,
+        findings: "Análisis completado",
+        disclaimer: "Importante: Este es un análisis preliminar generado por IA y no debe considerarse un diagnóstico médico definitivo. La interpretación de imágenes médicas es compleja y debe ser realizada por un radiólogo certificado. Consulte a un profesional de la salud para una evaluación completa y un diagnóstico preciso."
+      };
+    }
+
+    return {
+      summary: parsedResponse.summary || response.response,
+      findings: parsedResponse.findings || "Análisis completado",
+      disclaimer: parsedResponse.disclaimer || "Importante: Este es un análisis preliminar generado por IA y no debe considerarse un diagnóstico médico definitivo. La interpretación de imágenes médicas es compleja y debe ser realizada por un radiólogo certificado. Consulte a un profesional de la salud para una evaluación completa y un diagnóstico preciso.",
+    };
+  } catch (error) {
+    console.error('Error calling MedGemma exam analysis:', error);
+    throw new Error(`Failed to analyze exam: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-);
+}

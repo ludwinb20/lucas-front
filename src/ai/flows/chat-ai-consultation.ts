@@ -9,8 +9,8 @@
  * - ChatAIConsultationOutput - The return type for the chatAIConsultation function.
  */
 
-import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import { z } from 'zod';
+import { medGemmaClient } from '@/lib/medgemma-client';
 
 const ChatMessageSchema = z.object({
   role: z.enum(['user', 'ai']),
@@ -29,31 +29,35 @@ const ChatAIConsultationOutputSchema = z.object({
 export type ChatAIConsultationOutput = z.infer<typeof ChatAIConsultationOutputSchema>;
 
 export async function chatAIConsultation(input: ChatAIConsultationInput): Promise<ChatAIConsultationOutput> {
-  return chatAIConsultationFlow(input);
-}
+  try {
+    // Convertir historial a prompt
+    const historyText = input.history
+      .map(msg => `${msg.role}: ${msg.content}${msg.imageUrl ? ` [Imagen: ${msg.imageUrl}]` : ''}`)
+      .join('\n');
 
-const prompt = ai.definePrompt({
-  name: 'chatAIConsultationPrompt',
-  input: {schema: ChatAIConsultationInputSchema},
-  output: {schema: ChatAIConsultationOutputSchema},
-  prompt: `Eres LucasMed, un asistente médico de IA en un chat con un doctor. Usa el contexto de los últimos mensajes para dar una respuesta precisa y útil.
+    const prompt = `Eres LucasMed, un asistente médico de IA en un chat con un doctor. Usa el contexto de los últimos mensajes para dar una respuesta precisa y útil.
 
-Historial de mensajes (del más antiguo al más reciente):
-{{#each history}}
-- {{role}}: {{{content}}}{{#if imageUrl}} [Imagen adjunta: {{imageUrl}}]{{/if}}
-{{/each}}
+Historial de mensajes:
+${historyText}
 
-Responde al último mensaje del usuario de la forma más útil y profesional posible. Si hay imágenes, tenlas en cuenta en tu análisis.`,
-});
+Responde al último mensaje del usuario de la forma más útil y profesional posible. Si hay imágenes, tenlas en cuenta en tu análisis.`;
 
-const chatAIConsultationFlow = ai.defineFlow(
-  {
-    name: 'chatAIConsultationFlow',
-    inputSchema: ChatAIConsultationInputSchema,
-    outputSchema: ChatAIConsultationOutputSchema,
-  },
-  async input => {
-    const {output} = await prompt(input);
-    return output!;
+    const response = await medGemmaClient.processText({
+      prompt,
+      context: historyText,
+    });
+
+    if (!response.success) {
+      throw new Error('MedGemma API returned unsuccessful response');
+    }
+
+    console.log('Total tokens used:', response.tokens_used);
+
+    return {
+      response: response.response,
+    };
+  } catch (error) {
+    console.error('Error calling MedGemma chat consultation:', error);
+    throw new Error(`Failed to get AI response: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
-);
+}
