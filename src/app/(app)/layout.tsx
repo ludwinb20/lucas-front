@@ -78,24 +78,24 @@ export default function AppLayout({
 
   return (
     <ThemeProvider>
-      <SidebarProvider>
-        <Sidebar>
+    <SidebarProvider>
+      <Sidebar>
           <SidebarHeader className="border-b border-sidebar-border/10 px-4 py-6">
               <div className="flex items-center justify-center">
                 <Logo size="text-xl" />
               </div>
-          </SidebarHeader>
+        </SidebarHeader>
           <SidebarContent className="flex-1 px-3 py-4">
               <SidebarMenu items={menuItems} userRole={userProfile?.role} />
-          </SidebarContent>
-        </Sidebar>
-        <SidebarInset>
-          <AppHeader />
-          <div className="flex-1 container mx-auto p-4 md:p-6 flex flex-col">
-            {children}
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+        </SidebarContent>
+      </Sidebar>
+      <SidebarInset>
+        <AppHeader />
+        <div className="flex-1 container mx-auto p-4 md:p-6 flex flex-col">
+          {children}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
     </ThemeProvider>
   );
 }

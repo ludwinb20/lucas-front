@@ -40,6 +40,7 @@ export function ChatInterface() {
   const { toast } = useToast();
   const { user, userProfile, isLoading: isAuthLoading } = useAuth();
   const [lastLoaded, setLastLoaded] = useState<any>(null);
+  const [pendingAiMessage, setPendingAiMessage] = useState<Message | null>(null);
 
   const loadMoreMessages = async (): Promise<Message[]> => {
     console.log("loadMoreMessages");
@@ -141,7 +142,8 @@ export function ChatInterface() {
             });
           });
 
-          setMessages(msgs);
+          const merged = pendingAiMessage && pendingAiMessage.text.trim().length > 0 ? [pendingAiMessage, ...msgs] : msgs;
+          setMessages(merged);
           if (querySnapshot.docs.length > 0) {
             const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
             setLastLoaded({ createdAt: lastDoc.data().createdAt, ref: lastDoc.ref });
@@ -169,7 +171,7 @@ export function ChatInterface() {
         },
       ]);
     }
-  }, [user, userProfile, isAuthLoading, toast]);
+  }, [user, userProfile, isAuthLoading, toast, pendingAiMessage]);
 
   const handleSendMessage = async (text: string, imageFile?: File | null) => {
     if (!user) {
@@ -182,7 +184,18 @@ export function ChatInterface() {
     }
 
     let imageUrl: string | undefined = undefined;
+    let imageDataUri: string | undefined = undefined;
+    
     if (imageFile) {
+      // Convertir la imagen a data URI para el endpoint
+      const reader = new FileReader();
+      imageDataUri = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(imageFile);
+      });
+      
+      // También subir a Firebase Storage para mostrar en la UI
       const storageRef = ref(storage, `users/${user.uid}/chat-images/${Date.now()}_${imageFile.name}`);
       const uploadResult = await uploadBytes(storageRef, imageFile);
       imageUrl = await getDownloadURL(uploadResult.ref);
@@ -197,42 +210,212 @@ export function ChatInterface() {
 
     setIsSending(true);
 
+    // Crear mensaje temporal de IA para streaming
+    const tempAiMessageId = crypto.randomUUID();
+    const tempAiMessage: Message = {
+      id: tempAiMessageId,
+      text: '',
+      sender: 'ai',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
     try {
       const messagesCollection = collection(db, 'users', user.uid, 'messages');
       await addDoc(messagesCollection, userMessage);
 
-      const last10 = [...messages, { ...userMessage, id: 'temp' }]
-        .slice(-10)
+      // Obtener los 4 mensajes más recientes (excluyendo el mensaje actual del usuario)
+      const filteredMessages = messages
+        .filter((m) => !m.text.includes('Soy LucasMed, tu asistente de IA. ¿Cómo puedo ayudarte hoy?'));
+      
+      console.log('🔍 Debug - Array completo de mensajes:', messages.map(m => ({ sender: m.sender, text: m.text?.substring(0, 50) + '...' })));
+      console.log('🔍 Debug - Mensajes filtrados:', filteredMessages.map(m => ({ sender: m.sender, text: m.text?.substring(0, 50) + '...' })));
+      
+      const previousMessages = filteredMessages
+        .slice(-4) // Tomar los 4 más recientes del array filtrado
+        .reverse() // Invertir el orden para que esté cronológicamente correcto (más antiguos primero)
         .map((m) => ({
           role: m.sender,
           content: m.text,
           imageUrl: m.imageUrl,
         }));
 
-      const aiResponse = await chatAIConsultation({ history: last10 });
+      // Agregar mensaje temporal a la UI (al fondo visual con column-reverse => al inicio del array)
+      // NO agregar el mensaje vacío a la lista de mensajes hasta que tenga contenido
+      setPendingAiMessage(tempAiMessage);
+      // setMessages(prev => [tempAiMessage, ...prev]); // Comentado: no mostrar mensaje vacío
 
-      const aiMessage = {
-        text: aiResponse.response,
-        sender: 'ai' as const,
-        createdAt: serverTimestamp(),
-      };
+      try {
+        // Usar el endpoint de Next.js como proxy para evitar CORS
+        console.log('Llamando a MedGemma a través de proxy Next.js');
 
-      await addDoc(messagesCollection, aiMessage);
+        // Construir contexto con los mensajes anteriores
+        console.log('🔍 Debug - previousMessages:', JSON.stringify(previousMessages, null, 2));
+        
+        const context = previousMessages
+          .map((msg: any) => {
+            console.log('🔍 Debug - Procesando mensaje:', { role: msg.role, content: msg.content?.substring(0, 100) + '...' });
+            const role = msg.role === 'user' ? 'Usuario' : 'Asistente';
+            const content = msg.content;
+            const imageInfo = msg.imageUrl ? ` [Imagen: ${msg.imageUrl}]` : '';
+            const formattedMessage = `[${role}] ${content}${imageInfo}`;
+            console.log('🔍 Debug - Mensaje formateado:', formattedMessage);
+            return formattedMessage;
+          })
+          .join('\n');
+
+        const prompt = text;
+
+        console.log('🔍 Debug - Contexto final:', context);
+        console.log('🔍 Debug - Prompt:', prompt);
+        console.log('🔍 Debug - Image URL:', imageUrl);
+        console.log('🔍 Debug - Image Data URI:', imageDataUri ? 'data:image/...' : 'No image');
+
+        // Determinar el endpoint basado en si hay imagen o no
+        const endpoint = imageDataUri ? '/api/process-image-stream' : '/api/process-text-stream';
+        console.log('🔍 Debug - Usando endpoint:', endpoint);
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt,
+            context,
+            ...(imageDataUri && { imageDataUri }), // Incluir imageDataUri solo si existe
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        if (!response.body) {
+          throw new Error('No response body available for streaming');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let fullResponse = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) {
+            break;
+          }
+
+          const chunk = decoder.decode(value);
+          let handled = false;
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.error) {
+                  // Manejar error del stream - mostrar alerta y no guardar en BD
+                  console.error('Error recibido en stream:', data.error);
+                  setMessages(prev => prev.filter(msg => msg.id !== tempAiMessageId));
+                  setPendingAiMessage(null);
+                  toast({
+                    variant: 'destructive',
+                    title: 'Error de conexión',
+                    description: 'No se pudo obtener una respuesta de la IA. Verifica tu conexión e intenta de nuevo.',
+                  });
+                  return;
+                }
+                if (typeof data.token === 'string') {
+                  fullResponse += data.token;
+                  handled = true;
+                  setPendingAiMessage(prev => (prev ? { ...prev, text: fullResponse } : prev));
+                  
+                  // Solo agregar el mensaje a la lista cuando tenga contenido
+                  setMessages(prev => {
+                    const exists = prev.some(m => m.id === tempAiMessageId);
+                    if (!exists && fullResponse.trim().length > 0) {
+                      return [{ ...tempAiMessage, text: fullResponse }, ...prev];
+                    }
+                    if (exists) {
+                      const others = prev.filter(m => m.id !== tempAiMessageId);
+                      return [{ ...tempAiMessage, text: fullResponse }, ...others];
+                    }
+                    return prev;
+                  });
+                }
+                if (data.finished) {
+                  const finalAiMessage = {
+                    text: fullResponse,
+                    sender: 'ai' as const,
+                    createdAt: serverTimestamp(),
+                  };
+                  await addDoc(messagesCollection, finalAiMessage);
+                  setPendingAiMessage(null);
+                  
+                  // Asegurar que el mensaje esté en la lista si no estaba
+                  setMessages(prev => {
+                    const exists = prev.some(m => m.id === tempAiMessageId);
+                    if (!exists && fullResponse.trim().length > 0) {
+                      return [{ ...tempAiMessage, text: fullResponse }, ...prev];
+                    }
+                    return prev.filter(msg => msg.id !== tempAiMessageId);
+                  });
+                  return;
+                }
+              } catch (e) {
+                // ignore JSON parse errors for non-SSE chunks
+              }
+            }
+          }
+
+          // Fallback: si no vino en formato SSE, tratamos el chunk como texto plano
+          if (!handled) {
+            fullResponse += chunk;
+            setPendingAiMessage(prev => (prev ? { ...prev, text: fullResponse } : prev));
+            setMessages(prev => {
+              const exists = prev.some(m => m.id === tempAiMessageId);
+              if (!exists && fullResponse.trim().length > 0) {
+                return [{ ...tempAiMessage, text: fullResponse }, ...prev];
+              }
+              if (exists) {
+                const others = prev.filter(m => m.id !== tempAiMessageId);
+                return [{ ...tempAiMessage, text: fullResponse }, ...others];
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error en streaming:', error);
+        // Remover mensaje temporal en caso de error
+        setMessages(prev => prev.filter(msg => msg.id !== tempAiMessageId));
+        setPendingAiMessage(null);
+        
+        // Mostrar toast de error
+        toast({
+          variant: 'destructive',
+          title: 'Error de conexión',
+          description: 'No se pudo obtener una respuesta de la IA. Verifica tu conexión e intenta de nuevo.',
+        });
+        
+        // NO propagar el error para evitar el catch exterior
+        return;
+      }
     } catch (error) {
+      console.error('Error en chat:', error);
+      
+      // Remover mensaje temporal si existe
+      setMessages(prev => prev.filter(msg => msg.id !== tempAiMessageId));
+      setPendingAiMessage(null);
+      
+      // Mostrar toast de error
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'No se pudo obtener una respuesta de la IA. Intenta de nuevo.',
+        title: 'Error de conexión',
+        description: 'No se pudo obtener una respuesta de la IA. Verifica tu conexión e intenta de nuevo.',
       });
-
-      const fallbackMessage = {
-        text: "Lo siento, no pude procesar tu solicitud. Intenta nuevamente más tarde.",
-        sender: 'ai' as const,
-        createdAt: serverTimestamp(),
-      };
-
-      const messagesCollection = collection(db, 'users', user.uid, 'messages');
-      await addDoc(messagesCollection, fallbackMessage);
+      
+      // NO guardar mensaje de error en la base de datos
     } finally {
       setIsSending(false);
     }
@@ -240,7 +423,12 @@ export function ChatInterface() {
 
   return (
     <Card className="flex flex-col h-[calc(100vh-theme(spacing.28))] md:h-[calc(100vh-theme(spacing.32))] shadow-2xl overflow-hidden rounded-lg border">
-      <MessageList messages={messages} isLoadingAiResponse={isSending} loadMoreMessages={loadMoreMessages} />
+      <MessageList 
+        messages={messages} 
+        isLoadingAiResponse={isSending} 
+        loadMoreMessages={loadMoreMessages}
+        isStreamingPending={!!pendingAiMessage && pendingAiMessage.text.trim().length === 0}
+      />
       <MessageInput onSendMessage={handleSendMessage} isSending={isSending} />
     </Card>
   );

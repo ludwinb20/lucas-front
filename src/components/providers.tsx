@@ -41,7 +41,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('AUTH: Logout successful.');
     }, [router]);
     
-    // Effect to handle session cookie creation on auth state change
+    // Effect to handle auth state change
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
             console.log('AUTH: onAuthStateChanged triggered. User:', user?.uid || 'null');
@@ -152,6 +152,7 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('%cAUTH: Profile successfully saved to Firestore.', 'color: green;');
         
         const localProfile: UserProfile = {
+            id: user.uid,
             name,
             email: user.email!,
             role: 'doctor',

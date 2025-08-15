@@ -73,7 +73,7 @@ Proporciona la respuesta en formato JSON con las claves: diagnósticos (array), 
           probabilidad: 50,
           justificación: "Análisis realizado por IA",
           recomendación: "Consulte a un médico para diagnóstico definitivo",
-          tipo: "obvio"
+    tipo: "obvio"
         }],
         disclaimer: "Importante: Esta es una sugerencia generada por IA y no reemplaza el juicio clínico profesional. El diagnóstico definitivo y el tratamiento deben ser realizados por un médico."
       };

@@ -1,46 +1,48 @@
 // src/app/api/auth/session/route.ts
-import {NextResponse} from 'next/server';
-import {cookies} from 'next/headers';
-import {z} from 'zod';
-import {auth as adminAuth} from '@/lib/firebase-admin';
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import { auth } from '@/lib/firebase-admin';
 
-const BodySchema = z.object({
-  idToken: z.string(),
-});
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const result = BodySchema.safeParse(body);
+    const { idToken } = body;
 
-    if (!result.success) {
-      return NextResponse.json({status: 'error', error: 'Invalid request body'}, {status: 400});
+    if (!idToken) {
+      return NextResponse.json(
+        { error: 'No ID token provided' },
+        { status: 400 }
+      );
     }
 
-    const {idToken} = result.data;
-    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
+    // Verificar el ID token
+    const decodedToken = await auth.verifyIdToken(idToken);
 
-    const decodedIdToken = await adminAuth.verifyIdToken(idToken);
+    // Crear session cookie
+    const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 días
+    const sessionCookie = await auth.createSessionCookie(idToken, { expiresIn });
 
-    if (new Date().getTime() / 1000 - decodedIdToken.auth_time < 5 * 60) {
-      const sessionCookie = await adminAuth.createSessionCookie(idToken, {expiresIn});
-
-      const cookieStore = await cookies();
-      cookieStore.set('__session', sessionCookie, {
-        maxAge: expiresIn / 1000,
+    // Configurar la cookie
+    const options = {
+      maxAge: expiresIn,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax' as const,
         path: '/',
-        sameSite: 'lax',
-      });
+    };
 
-      return NextResponse.json({status: 'success'}, {status: 200});
-    } else {
-      return NextResponse.json({status: 'error', error: 'Recent sign-in required'}, {status: 401});
-    }
+    const response = NextResponse.json({ success: true });
+    response.cookies.set('__session', sessionCookie, options);
+
+    console.log('🔍 Debug - Session cookie creada para usuario:', decodedToken.uid);
+
+    return response;
   } catch (error) {
-    console.error('Failed to create session:', error);
-    return NextResponse.json({status: 'error', error: `Failed to create session: ${(error as Error).message}`}, {status: 500});
+    console.error('Error creating session cookie:', error);
+    return NextResponse.json(
+      { error: 'Failed to create session cookie' },
+      { status: 500 }
+    );
   }
 }
 

@@ -11,23 +11,34 @@ interface MessageListProps {
   messages: Message[];
   isLoadingAiResponse: boolean;
   loadMoreMessages: () => Promise<Message[]>;
+  isStreamingPending?: boolean;
 }
 
 const INITIAL_LOAD = 15;
 
-export function MessageList({ messages, isLoadingAiResponse, loadMoreMessages }: MessageListProps) {
+export function MessageList({ messages, isLoadingAiResponse, loadMoreMessages, isStreamingPending = false }: MessageListProps) {
   const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // Cargar los últimos mensajes al inicio en orden cronológico
     const initialMessages = messages;
-    console.log("initialMessages", initialMessages);
     setDisplayedMessages(initialMessages);
-    // setHasMore(initialMessages.length < messages.length);
   }, [messages]);
+
+  useEffect(() => {
+    // Mantener el scroll en el final mientras llegan tokens (con inverse + column-reverse usar top=0)
+    if (!isLoadingMore && containerRef.current) {
+      requestAnimationFrame(() => {
+        try {
+          containerRef.current?.scrollTo({ top: 0 });
+        } catch {}
+      });
+    }
+  }, [displayedMessages, isLoadingMore]);
 
   useEffect(() => {
     // Limpiar timeout si el componente se desmonta
@@ -37,23 +48,15 @@ export function MessageList({ messages, isLoadingAiResponse, loadMoreMessages }:
   }, []);
 
   const fetchMoreData = async () => {
-    console.log("isLoadingMore", isLoadingMore);
     if (isLoadingMore) return;
     setIsLoadingMore(true);
-    console.log("fetchMoreData");
     const moreMessages = await loadMoreMessages();
-    console.log("moreMessages", moreMessages);
     if (moreMessages.length === 0) {
-      console.log("no more messages");
       setHasMore(false);
       setIsLoadingMore(false);
       return;
     }
-    console.log("setting displayedMessages");
-    console.log(moreMessages);
-    console.log(displayedMessages);
     setDisplayedMessages((prev) => {
-      // Ya no es necesario filtrar ids repetidos
       return [...prev, ...moreMessages];
     });
     if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
@@ -65,6 +68,7 @@ export function MessageList({ messages, isLoadingAiResponse, loadMoreMessages }:
   return (
     <div
       id="scrollableDiv"
+      ref={containerRef}
       style={{
         height: "100%",
         overflow: "auto",
@@ -75,7 +79,6 @@ export function MessageList({ messages, isLoadingAiResponse, loadMoreMessages }:
       <InfiniteScroll
         dataLength={displayedMessages.length}
         next={() => {
-          console.log("next");
           fetchMoreData();
         }}
         hasMore={hasMore}
@@ -89,10 +92,8 @@ export function MessageList({ messages, isLoadingAiResponse, loadMoreMessages }:
         scrollableTarget="scrollableDiv"
         style={{ display: "flex", flexDirection: "column-reverse", paddingRight: "1rem", paddingLeft: "1rem", paddingBottom: "1rem", paddingTop: "1rem"}}
       >
-        {displayedMessages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
-        ))}
-        {isLoadingAiResponse && (
+        {/* Loader de espera de primer token: renderizado antes para que aparezca al fondo con column-reverse */}
+        {isStreamingPending && (
           <div className="flex items-end gap-2 animate-in fade-in slide-in-from-bottom-3 duration-300 justify-start">
             <Skeleton className="h-8 w-8 rounded-full bg-accent" />
             <div className="max-w-[70%] rounded-xl px-3 py-2 shadow-md bg-card text-card-foreground rounded-bl-none">
@@ -104,6 +105,10 @@ export function MessageList({ messages, isLoadingAiResponse, loadMoreMessages }:
             </div>
           </div>
         )}
+
+        {displayedMessages.map((msg) => {
+          return <ChatMessage key={msg.id} message={msg} />;
+        })}
       </InfiniteScroll>
     </div>
   );
