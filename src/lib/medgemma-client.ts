@@ -10,6 +10,18 @@ interface ImageRequest {
   prompt: string;
 }
 
+interface ExamReportRequest {
+  imageDataUri: string;
+  examType: string;
+}
+
+interface DiagnosisRequest {
+  sintomas: string;
+  signos?: string;
+  hallazgos?: string;
+  modo: 'obvios' | 'raros';
+}
+
 interface MedGemmaResponse {
   response: string;
   tokens_used: number;
@@ -77,6 +89,25 @@ class MedGemmaClient {
 
   async processImage(request: ImageRequest): Promise<MedGemmaResponse> {
     return this.makeRequest<MedGemmaResponse>('/api/process-image', request);
+  }
+
+  async generateExamReport(request: ExamReportRequest): Promise<MedGemmaResponse> {
+    console.log('🔍 Debug - Enviando request a exam-report:', {
+      examType: request.examType,
+      imageDataUriLength: request.imageDataUri?.length || 0,
+      imageDataUriPreview: request.imageDataUri?.substring(0, 100) + '...'
+    });
+    return this.makeRequest<MedGemmaResponse>('/api/exam-report', request);
+  }
+
+  async generateDiagnosis(request: DiagnosisRequest): Promise<MedGemmaResponse> {
+    console.log('🔍 Debug - Enviando request a diagnosis:', {
+      sintomas: request.sintomas,
+      signos: request.signos,
+      hallazgos: request.hallazgos,
+      modo: request.modo
+    });
+    return this.makeRequest<MedGemmaResponse>('/api/diagnosis', request);
   }
 }
 

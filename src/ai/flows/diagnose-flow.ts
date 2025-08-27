@@ -33,29 +33,20 @@ export type DiagnoseOutput = z.infer<typeof DiagnoseOutputSchema>;
 
 export async function diagnoseSymptoms(input: DiagnoseInput): Promise<DiagnoseOutput> {
   try {
-    const prompt = `Eres LucasMed, un asistente médico de IA que ayuda a DOCTORES a explorar diagnósticos diferenciales.
-
-Información del caso clínico:
-- Síntomas: ${input.sintomas}
-- Signos: ${input.signos || 'No especificados'}
-- Hallazgos: ${input.hallazgos || 'No especificados'}
-- Modo de búsqueda: ${input.modo} (${input.modo === 'obvios' ? 'diagnósticos comunes' : 'diagnósticos menos frecuentes'})
-
-Tu tarea es:
-1. Analizar la información y sugerir diagnósticos diferenciales
-2. Para cada diagnóstico, indica: condición, probabilidad (0-100), justificación, recomendación, tipo (obvio/raro)
-3. Si el modo es "obvios", prioriza diagnósticos comunes. Si es "raros", prioriza diagnósticos atípicos
-4. No repitas diagnósticos similares
-5. No pidas datos personales ni hables al paciente, solo al doctor
-6. Agrega este disclaimer: "Importante: Esta es una sugerencia generada por IA y no reemplaza el juicio clínico profesional. El diagnóstico definitivo y el tratamiento deben ser realizados por un médico."
-
-Proporciona la respuesta en formato JSON con las claves: diagnósticos (array), disclaimer (string).`;
-
-    const response = await medGemmaClient.processText({
-      prompt,
+    const response = await medGemmaClient.generateDiagnosis({
+      sintomas: input.sintomas,
+      signos: input.signos,
+      hallazgos: input.hallazgos,
+      modo: input.modo,
     });
 
+    console.log('🔍 Debug - Response completa del endpoint diagnosis:', JSON.stringify(response, null, 2));
+    console.log('🔍 Debug - Response.success:', response.success);
+    console.log('🔍 Debug - Response.response:', response.response);
+    console.log('🔍 Debug - Response.tokens_used:', response.tokens_used);
+
     if (!response.success) {
+      console.error('❌ Error - Response no exitosa:', response);
       throw new Error('MedGemma API returned unsuccessful response');
     }
 
@@ -79,8 +70,18 @@ Proporciona la respuesta en formato JSON con las claves: diagnósticos (array), 
       };
     }
 
+    // Normalizar los diagnósticos para manejar campos sin tildes
+    const diagnosticos = parsedResponse.diagnósticos || parsedResponse.diagnosticos || [];
+    const normalizedDiagnosticos = diagnosticos.map((diag: any) => ({
+      condición: diag.condición || diag.condicion,
+      probabilidad: diag.probabilidad,
+      justificación: diag.justificación || diag.justificacion,
+      recomendación: diag.recomendación || diag.recomendacion,
+      tipo: diag.tipo
+    }));
+
     return {
-      diagnósticos: parsedResponse.diagnósticos || [],
+      diagnósticos: normalizedDiagnosticos,
       disclaimer: parsedResponse.disclaimer || "Importante: Esta es una sugerencia generada por IA y no reemplaza el juicio clínico profesional. El diagnóstico definitivo y el tratamiento deben ser realizados por un médico.",
     };
   } catch (error) {

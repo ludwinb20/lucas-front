@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Loader2, Image as ImageIcon, X } from 'lucide-react';
+import { clearFileInput } from '@/lib/utils';
 
 interface MessageInputProps {
   onSendMessage: (messageText: string, imageFile?: File | null) => Promise<void>;
@@ -24,6 +25,8 @@ export function MessageInput({ onSendMessage, isSending, placeholder = "Habla co
       setInputText('');
       setImageFile(null);
       setImagePreview(null);
+      // Limpiar completamente el input de archivo
+      clearFileInput(fileInputRef);
       await onSendMessage(textToSend, imageFile);
       adjustTextareaHeight();
     }
@@ -40,7 +43,8 @@ export function MessageInput({ onSendMessage, isSending, placeholder = "Habla co
   const removeImage = () => {
     setImageFile(null);
     setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    // Limpiar completamente el input de archivo
+    clearFileInput(fileInputRef);
   };
 
   const adjustTextareaHeight = () => {

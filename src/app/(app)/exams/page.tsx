@@ -18,6 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { UploadCloud, FileText, Loader2, Wand2, AlertTriangle, FileUp } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import ExamsHistory from './ExamsHistory';
+import { clearFileInput } from '@/lib/utils';
 
 const examTypes = [
   { value: "radiografia", label: "Radiografía (Rayos X)" },
@@ -120,14 +121,13 @@ export default function ExamsPage() {
     setExamType('');
     setAnalysisResult(null);
     setIsLoading(false);
-    if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-    }
+    // Limpiar completamente el input de archivo
+    clearFileInput(fileInputRef);
   }
 
   return (
     <div className="flex gap-8 w-full min-h-[70vh]">
-      <div className="flex-1 flex flex-col gap-6">
+      <div className="flex-1 flex flex-col gap-6 max-w-5xl">
         <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
@@ -238,7 +238,7 @@ export default function ExamsPage() {
           </Card>
         )}
       </div>
-      <aside className="w-96 min-w-[320px] border-l pl-6">
+      <aside className="w-80 min-w-[280px] border-l pl-6">
         <ExamsHistory />
       </aside>
     </div>

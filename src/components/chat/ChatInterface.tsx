@@ -31,6 +31,7 @@ export interface Message {
   timestamp?: string;
   createdAt?: Timestamp;
   imageUrl?: string;
+  imageDataUri?: string;
   ref?: DocumentReference;
 }
 
@@ -89,6 +90,7 @@ export function ChatInterface() {
             })
           : undefined,
         imageUrl: data.imageUrl,
+        imageDataUri: data.imageDataUri,
       });
     });
 
@@ -139,6 +141,7 @@ export function ChatInterface() {
                   })
                 : undefined,
               imageUrl: data.imageUrl,
+              imageDataUri: data.imageDataUri,
             });
           });
 
@@ -206,6 +209,7 @@ export function ChatInterface() {
       sender: 'user' as const,
       createdAt: serverTimestamp(),
       ...(imageUrl && { imageUrl }),
+      ...(imageDataUri && { imageDataUri }),
     };
 
     setIsSending(true);
@@ -231,12 +235,13 @@ export function ChatInterface() {
       console.log('🔍 Debug - Mensajes filtrados:', filteredMessages.map(m => ({ sender: m.sender, text: m.text?.substring(0, 50) + '...' })));
       
       const previousMessages = filteredMessages
-        .slice(-4) // Tomar los 4 más recientes del array filtrado
+        .slice(0, 4) // Tomar los 4 más recientes del array filtrado (ya están en orden descendente)
         .reverse() // Invertir el orden para que esté cronológicamente correcto (más antiguos primero)
         .map((m) => ({
           role: m.sender,
           content: m.text,
           imageUrl: m.imageUrl,
+          imageDataUri: m.imageDataUri,
         }));
 
       // Agregar mensaje temporal a la UI (al fondo visual con column-reverse => al inicio del array)
@@ -256,10 +261,18 @@ export function ChatInterface() {
             console.log('🔍 Debug - Procesando mensaje:', { role: msg.role, content: msg.content?.substring(0, 100) + '...' });
             const role = msg.role === 'user' ? 'Usuario' : 'Asistente';
             const content = msg.content;
-            const imageInfo = msg.imageUrl ? ` [Imagen: ${msg.imageUrl}]` : '';
-            const formattedMessage = `[${role}] ${content}${imageInfo}`;
-            console.log('🔍 Debug - Mensaje formateado:', formattedMessage);
-            return formattedMessage;
+            
+            if (msg.imageDataUri) {
+              // Si hay imagen, formato: texto en primera línea, base64 en segunda línea
+              const formattedMessage = `[${role}] ${content}\n${msg.imageDataUri}`;
+              console.log('🔍 Debug - Mensaje con imagen formateado:', formattedMessage.substring(0, 100) + '...');
+              return formattedMessage;
+            } else {
+              // Si no hay imagen, formato normal
+              const formattedMessage = `[${role}] ${content}`;
+              console.log('🔍 Debug - Mensaje formateado:', formattedMessage);
+              return formattedMessage;
+            }
           })
           .join('\n');
 
@@ -274,16 +287,20 @@ export function ChatInterface() {
         const endpoint = imageDataUri ? '/api/process-image-stream' : '/api/process-text-stream';
         console.log('🔍 Debug - Usando endpoint:', endpoint);
 
+        const requestBody = imageDataUri ? {
+          imageDataUri,
+          prompt: prompt
+        } : {
+          prompt,
+          context,
+        };
+
         const response = await fetch(endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            prompt,
-            context,
-            ...(imageDataUri && { imageDataUri }), // Incluir imageDataUri solo si existe
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {

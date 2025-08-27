@@ -12,7 +12,7 @@ export default function DiagnosisPage() {
     <div className="flex gap-8 w-full min-h-[70vh]">
       {result ? (
         <>
-          <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="flex-1 flex flex-col items-center max-w-4xl mx-auto">
             <DiagnosisResult result={result} />
             <button
               className="mt-8 px-4 py-2 rounded bg-primary text-white hover:bg-primary/90 transition-colors"
@@ -21,7 +21,7 @@ export default function DiagnosisPage() {
               Nuevo diagnóstico
             </button>
           </div>
-          <aside className="w-96 min-w-[320px] border-l pl-6 flex flex-col">
+          <aside className="w-80 min-w-[280px] border-l pl-6 flex flex-col">
             <div className="mb-4 text-sm font-semibold text-muted-foreground">¿Quieres analizar otro caso?</div>
             <DiagnosisForm onResult={setResult} />
             <div className="mt-8 flex-1">

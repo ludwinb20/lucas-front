@@ -29,20 +29,18 @@ export type AnalyzeExamOutput = z.infer<typeof AnalyzeExamOutputSchema>;
 
 export async function analyzeExam(input: AnalyzeExamInput): Promise<AnalyzeExamOutput> {
   try {
-    const prompt = `Eres un radiólogo experto. Analiza esta imagen médica de tipo '${input.examType}' y proporciona:
-
-1. **Resumen**: Un análisis detallado en lenguaje médico técnico y profesional, como si fuera escrito por un radiólogo.
-2. **Hallazgos**: Una lista clara y detallada de todos los hallazgos potenciales, tanto normales como anormales.
-3. **Disclaimer**: El siguiente texto exacto: "Importante: Este es un análisis preliminar generado por IA y no debe considerarse un diagnóstico médico definitivo. La interpretación de imágenes médicas es compleja y debe ser realizada por un radiólogo certificado. Consulte a un profesional de la salud para una evaluación completa y un diagnóstico preciso."
-
-Proporciona la respuesta en formato JSON con las claves: summary, findings, disclaimer.`;
-
-    const response = await medGemmaClient.processImage({
+        const response = await medGemmaClient.generateExamReport({
       imageDataUri: input.imageDataUri,
-      prompt,
+      examType: input.examType,
     });
 
+    console.log('🔍 Debug - Response completa del endpoint exam-report:', JSON.stringify(response, null, 2));
+    console.log('🔍 Debug - Response.success:', response.success);
+    console.log('🔍 Debug - Response.response:', response.response);
+    console.log('🔍 Debug - Response.tokens_used:', response.tokens_used);
+
     if (!response.success) {
+      console.error('❌ Error - Response no exitosa:', response);
       throw new Error('MedGemma API returned unsuccessful response');
     }
 
@@ -61,9 +59,20 @@ Proporciona la respuesta en formato JSON con las claves: summary, findings, disc
       };
     }
 
+    // Procesar findings - si es un array, convertirlo a string con saltos de línea
+    let findingsText = parsedResponse.findings || "Análisis completado";
+    if (Array.isArray(findingsText)) {
+      findingsText = findingsText.map((finding, index) => {
+        // Agregar punto al final si no lo tiene
+        const cleanFinding = finding.trim();
+        const hasPeriod = cleanFinding.endsWith('.');
+        return `${index + 1}. ${cleanFinding}${hasPeriod ? '' : '.'}`;
+      }).join('\n\n');
+    }
+
     return {
       summary: parsedResponse.summary || response.response,
-      findings: parsedResponse.findings || "Análisis completado",
+      findings: findingsText,
       disclaimer: parsedResponse.disclaimer || "Importante: Este es un análisis preliminar generado por IA y no debe considerarse un diagnóstico médico definitivo. La interpretación de imágenes médicas es compleja y debe ser realizada por un radiólogo certificado. Consulte a un profesional de la salud para una evaluación completa y un diagnóstico preciso.",
     };
   } catch (error) {

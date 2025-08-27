@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
       if (!apiKey) {
         throw new Error('API Key no configurada');
       }
-
+      console.log('🔍 Debug - Llamando a MedGemma desde servidor (API key segura)');
+      console.log("Url: ", `${baseUrl}/api/process-text-stream`);
       const upstreamResponse = await fetch(`${baseUrl}/api/process-text-stream`, {
         method: 'POST',
         headers: {
